@@ -78,7 +78,9 @@ def run_processing(video_path, pdf_path, num_of_pages, resolution, user_folder, 
             extra_prompt=extra_prompt,
             voice=voice
         ))
-        os.remove(status_file)
+        # ✅ 立即刪除處理狀態檔案，讓用戶可以下載影片
+        if os.path.exists(status_file):
+            os.remove(status_file)
         app.logger.info("✅ Video Processing Completed!")
     except Exception as e:
         app.logger.error(f"❌ Error during processing: {e}", exc_info=True)
