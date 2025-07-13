@@ -304,5 +304,5 @@ def check_status():
 
 if __name__ == "__main__":
     public_url = ngrok.connect(5001)
-    print(f" * ngrok tunnel URL: {public_url}")
+    print(f" * ngrok tunnel URL: 👉👉👉 {public_url} 👈👈👈 Click here!")
     app.run(host="0.0.0.0", port=5001, debug=False, threaded=True)
