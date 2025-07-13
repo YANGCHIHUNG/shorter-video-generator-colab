@@ -1,0 +1,24 @@
+/* static/documentation.css */
+/* General layout */
+body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #fafafa; }
+.doc-nav { background: #333; padding: 10px; text-align: center; }
+.doc-nav a { color: #fff; margin: 0 10px; text-decoration: none; }
+.doc-main { padding: 20px; }
+h1 { margin-top: 0; }
+
+/* Tabs styling */
+.tab { overflow: hidden; border-bottom: 1px solid #ccc; }
+.tab button { background: #eee; float: left; border: none; outline: none;
+  cursor: pointer; padding: 10px 16px; transition: background 0.2s; }
+.tab button:hover { background: #ddd; }
+.tab button.active { background: #ccc; }
+.tabcontent { display: none; padding: 20px 0; }
+
+/* Code blocks */
+pre { background: #2d2d2d; color: #f8f8f2; padding: 12px; overflow-x: auto; position: relative; }
+.copy-btn { position: absolute; top: 8px; right: 8px; background: #4CAF50;
+  color: white; border: none; padding: 4px 8px; font-size: 12px;
+  cursor: pointer; border-radius: 4px; }
+
+/* Footer */
+.doc-footer { text-align: center; padding: 10px; font-size: 14px; color: #666; }

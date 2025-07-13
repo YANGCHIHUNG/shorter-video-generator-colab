@@ -1,0 +1,375 @@
+{% extends "base.html" %}
+
+{% block title %}Documentation - Video Generator{% endblock %}
+
+{% block extra_css %}
+<style>
+    .tab-container {
+        background: var(--card-bg);
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 12px var(--shadow);
+    }
+    
+    .tab-nav {
+        display: flex;
+        background: var(--input-bg);
+        border-bottom: 1px solid var(--border-color);
+        overflow-x: auto;
+    }
+    
+    .tab-button {
+        background: none;
+        border: none;
+        padding: 1rem 1.5rem;
+        cursor: pointer;
+        color: var(--text);
+        font-weight: 500;
+        transition: all 0.3s ease;
+        white-space: nowrap;
+        border-bottom: 3px solid transparent;
+    }
+    
+    .tab-button:hover {
+        background: var(--button-bg);
+        color: rgb(80, 80, 80);
+    }
+    
+    .tab-button.active {
+        background: var(--button-bg);
+        color: rgb(80, 80, 80);
+        border-bottom-color: var(--button-hover);
+    }
+    
+    .tab-content {
+        display: none;
+        padding: 2rem;
+        line-height: 1.6;
+    }
+    
+    .tab-content.active {
+        display: block;
+    }
+    
+    .code-block {
+        background: #2d2d2d;
+        color: #f8f8f2;
+        padding: 1.5rem;
+        border-radius: 8px;
+        overflow-x: auto;
+        position: relative;
+        margin: 1rem 0;
+        font-family: 'Courier New', monospace;
+    }
+    
+    .copy-btn {
+        position: absolute;
+        top: 0.5rem;
+        right: 0.5rem;
+        background: #4CAF50;
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.8rem;
+        transition: background 0.3s ease;
+    }
+    
+    .copy-btn:hover {
+        background: #45a049;
+    }
+    
+    .function-signature {
+        background: var(--input-bg);
+        padding: 1rem;
+        border-radius: 8px;
+        border-left: 4px solid var(--button-bg);
+        margin: 1rem 0;
+    }
+    
+    .example-box {
+        background: #e8f5e8;
+        border: 1px solid #4CAF50;
+        padding: 1rem;
+        border-radius: 8px;
+        margin: 1rem 0;
+    }
+    
+    [data-theme="dark"] .example-box {
+        background: #1a2f1a;
+        border-color: #4CAF50;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="text-align: center; margin-bottom: 3rem;">
+    <h1 style="margin-bottom: 1rem;">📚 API Documentation</h1>
+    <p style="font-size: 1.1rem; color: var(--text); opacity: 0.8;">
+        Complete guide to using the Video Generator API
+    </p>
+</div>
+
+<div class="tab-container" style="max-width: 1000px; margin: 0 auto;">
+    <div class="tab-nav">
+        <button class="tab-button active" onclick="openTab(event, 'overview')">📋 Overview</button>
+        <button class="tab-button" onclick="openTab(event, 'api')">🔌 API</button>
+        <button class="tab-button" onclick="openTab(event, 'utility')">🛠️ Utility</button>
+        <button class="tab-button" onclick="openTab(event, 'examples')">💡 Examples</button>
+    </div>
+
+    <!-- Overview Tab -->
+    <div id="overview" class="tab-content active">
+        <h2>🎬 Video Generator Overview</h2>
+        <p>The Video Generator is an AI-powered tool that processes videos and PDFs to create engaging content using advanced speech synthesis and transcription technologies.</p>
+        
+        <h3>🚀 Key Features</h3>
+        <ul style="list-style: none; padding: 0;">
+            <li style="padding: 0.5rem 0; display: flex; align-items: center; gap: 0.5rem;">
+                <span style="color: #4CAF50;">✅</span> Video to audio conversion
+            </li>
+            <li style="padding: 0.5rem 0; display: flex; align-items: center; gap: 0.5rem;">
+                <span style="color: #4CAF50;">✅</span> AI-powered transcription
+            </li>
+            <li style="padding: 0.5rem 0; display: flex; align-items: center; gap: 0.5rem;">
+                <span style="color: #4CAF50;">✅</span> PDF text extraction
+            </li>
+            <li style="padding: 0.5rem 0; display: flex; align-items: center; gap: 0.5rem;">
+                <span style="color: #4CAF50;">✅</span> Multiple TTS models (Edge, Kokoro)
+            </li>
+            <li style="padding: 0.5rem 0; display: flex; align-items: center; gap: 0.5rem;">
+                <span style="color: #4CAF50;">✅</span> Customizable resolution output
+            </li>
+        </ul>
+        
+        <h3>🔧 Supported Formats</h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin: 1rem 0;">
+            <div style="padding: 1rem; background: var(--input-bg); border-radius: 8px; text-align: center;">
+                <h4>📹 Video</h4>
+                <p>MP4 files</p>
+            </div>
+            <div style="padding: 1rem; background: var(--input-bg); border-radius: 8px; text-align: center;">
+                <h4>📄 Documents</h4>
+                <p>PDF files</p>
+            </div>
+            <div style="padding: 1rem; background: var(--input-bg); border-radius: 8px; text-align: center;">
+                <h4>🎵 Audio</h4>
+                <p>MP3 output</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- API Tab -->
+    <div id="api" class="tab-content">
+        <h2>🔌 API Reference</h2>
+        
+        <h3>ensure_directories_exist(*dirs)</h3>
+        <div class="function-signature">
+            <strong>Purpose:</strong> Create directories if they do not exist<br>
+            <strong>Parameters:</strong> *dirs (str) - one or more directory paths<br>
+            <strong>Returns:</strong> None
+        </div>
+        
+        <div class="code-block">
+            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            <code>def ensure_directories_exist(*dirs: str) -> None:
+    """
+    Create directories if they do not exist.
+    :param dirs: one or more directory paths
+    """
+    for path in dirs:
+        os.makedirs(path, exist_ok=True)</code>
+        </div>
+        
+        <div class="example-box">
+            <strong>Example:</strong><br>
+            <code>ensure_directories_exist('outputs', 'logs/tmp')</code>
+        </div>
+
+        <h3>async api(video_path, pdf_path, output_dir)</h3>
+        <div class="function-signature">
+            <strong>Purpose:</strong> Main pipeline for video processing<br>
+            <strong>Parameters:</strong><br>
+            • video_path (str) - input MP4 file path<br>
+            • pdf_path (str) - path to PDF script<br>
+            • output_dir (str) - base output directory<br>
+            <strong>Returns:</strong> Dict[str, Any] - results including transcript & slide paths
+        </div>
+        
+        <div class="code-block">
+            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            <code>async def api(video_path: str,
+              pdf_path: str,
+              output_dir: str) -> Dict[str, Any]:
+    """
+    Main pipeline: convert video to audio, transcribe, generate slides.
+    """
+    ensure_directories_exist(output_dir)
+    audio_path = convert_mp4_to_mp3(video_path)
+    transcript = transcribe_audio(audio_path)
+    slides = await gemini_chat(transcript, pdf_path)
+    return {'transcript': transcript, 'slides': slides}</code>
+        </div>
+    </div>
+
+    <!-- Utility Tab -->
+    <div id="utility" class="tab-content">
+        <h2>🛠️ Utility Functions</h2>
+        
+        <h3>Text-to-Speech Functions</h3>
+        
+        <h4>kokoro_tts_example</h4>
+        <div class="code-block">
+            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            <code>def kokoro_tts_example(
+    text: str,
+    output_dir: str,
+    filename: str,
+    voice: str = 'en-US-Wavenet-A') -> str:
+    """
+    Generate speech via Kokoro API and save MP3.
+    :return: path to saved file
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    out_path = os.path.join(output_dir, filename)
+    # API call logic...
+    return out_path</code>
+        </div>
+
+        <h4>edge_tts_example</h4>
+        <div class="code-block">
+            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            <code>async def edge_tts_example(
+    text: str,
+    output_dir: str,
+    filename: str,
+    voice: str = 'zh-CN-YunxiNeural') -> str:
+    """
+    Generate speech via Edge TTS and save MP3 asynchronously.
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    out_path = os.path.join(output_dir, filename)
+    await EdgeTTS.Communicate(text, voice).save(out_path)
+    return out_path</code>
+        </div>
+
+        <h3>Media Processing</h3>
+        
+        <div class="code-block">
+            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            <code>def convert_mp4_to_mp3(
+    video_path: str,
+    bitrate: str = '192k') -> str:
+    """Extract MP3 from MP4 using ffmpeg."""
+    audio_path = video_path.rsplit('.',1)[0] + '.mp3'
+    subprocess.run(['ffmpeg', '-i', video_path, '-b:a', bitrate, audio_path])
+    return audio_path
+
+def transcribe_audio(
+    audio_path: str,
+    model_size: str = 'small') -> str:
+    """Transcribe audio to text using Whisper."""
+    model = whisper.load_model(model_size)
+    result = model.transcribe(audio_path)
+    return result['text']</code>
+        </div>
+    </div>
+
+    <!-- Examples Tab -->
+    <div id="examples" class="tab-content">
+        <h2>💡 Usage Examples</h2>
+        
+        <h3>Basic Usage</h3>
+        <div class="code-block">
+            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            <code>import asyncio
+from api.whisper_LLM_api import api
+
+# Process a video and PDF
+results = asyncio.run(api(
+    video_path='input.mp4',
+    pdf_path='script.pdf',
+    output_dir='results'
+))
+
+print("Transcript:", results['transcript'])
+print("Slides:", results['slides'])</code>
+        </div>
+        
+        <h3>TTS Generation</h3>
+        <div class="code-block">
+            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            <code># Using Edge TTS
+import asyncio
+from utility.api import edge_tts_example
+
+async def generate_speech():
+    audio_path = await edge_tts_example(
+        text="Hello, this is a test.",
+        output_dir="output",
+        filename="test.mp3",
+        voice="en-US-AriaNeural"
+    )
+    return audio_path
+
+# Run the async function
+audio_file = asyncio.run(generate_speech())</code>
+        </div>
+        
+        <h3>PDF Processing</h3>
+        <div class="code-block">
+            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            <code>from utility.api import pdf_to_text_array, remove_markdown
+
+# Extract text from PDF
+pages = pdf_to_text_array("document.pdf")
+
+# Clean markdown from text
+for i, page in enumerate(pages):
+    clean_text = remove_markdown(page)
+    print(f"Page {i+1}: {clean_text[:100]}...")</code>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function openTab(evt, tabName) {
+        // Hide all tab contents
+        const tabContents = document.getElementsByClassName('tab-content');
+        for (let i = 0; i < tabContents.length; i++) {
+            tabContents[i].classList.remove('active');
+        }
+        
+        // Remove active class from all tab buttons
+        const tabButtons = document.getElementsByClassName('tab-button');
+        for (let i = 0; i < tabButtons.length; i++) {
+            tabButtons[i].classList.remove('active');
+        }
+        
+        // Show selected tab and mark button as active
+        document.getElementById(tabName).classList.add('active');
+        evt.currentTarget.classList.add('active');
+    }
+    
+    function copyCode(button) {
+        const codeBlock = button.nextElementSibling;
+        const text = codeBlock.textContent;
+        
+        navigator.clipboard.writeText(text).then(() => {
+            const originalText = button.textContent;
+            button.textContent = 'Copied!';
+            button.style.background = '#28a745';
+            
+            setTimeout(() => {
+                button.textContent = originalText;
+                button.style.background = '#4CAF50';
+            }, 2000);
+        }).catch(err => {
+            console.error('Failed to copy: ', err);
+        });
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,6 @@
+pdf/
+video/
+audio/
+output/*
+*.pyc
+myenv/

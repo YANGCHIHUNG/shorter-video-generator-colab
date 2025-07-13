@@ -1,0 +1,519 @@
+{% extends "base.html" %}
+
+{% block title %}Home - Video Generator{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<div style="text-align: center; margin-bottom: 4rem;">
+    <h1>🎬 AI Video Generator</h1>
+    <p class="subtitle">
+        Transform your videos and PDFs into engaging content with AI-powered processing
+    </p>
+</div>
+
+{% if current_user.is_authenticated %}
+    <!-- Upload Section -->
+    <div class="card" style="max-width: 700px; margin: 0 auto 4rem;">
+        <div class="card-header">
+            <h2 style="margin: 0;">📤 Upload Your Files</h2>
+            <p style="color: var(--text-secondary); margin: 0.5rem 0 0 0;">
+                Upload your video and PDF files to get started
+            </p>
+        </div>
+        
+        <div class="card-body">
+            <form id="upload-form" enctype="multipart/form-data">
+                <!-- Video Upload -->
+                <div class="file-upload-container">
+                    <label class="form-label">
+                        🎥 Upload Video (MP4) - Optional
+                    </label>
+                    <div class="file-upload" id="video-upload">
+                        <input type="file" name="video" id="video" accept=".mp4" 
+                               onchange="updateFileName(this, 'video-name', 'video-upload')">
+                        <div class="file-upload-icon">📹</div>
+                        <div class="file-upload-text">Choose Video File</div>
+                        <div class="file-upload-subtext">MP4 files up to 100MB</div>
+                    </div>
+                    <div id="video-name" class="file-name">No file chosen</div>
+                </div>
+
+                <!-- PDF Upload -->
+                <div class="file-upload-container">
+                    <label class="form-label">
+                        📄 Upload PDF - Required
+                    </label>
+                    <div class="file-upload" id="pdf-upload">
+                        <input type="file" name="pdf" id="pdf" accept=".pdf" required 
+                               onchange="updateFileName(this, 'pdf-name', 'pdf-upload')">
+                        <div class="file-upload-icon">📄</div>
+                        <div class="file-upload-text">Choose PDF File</div>
+                        <div class="file-upload-subtext">PDF files up to 50MB</div>
+                    </div>
+                    <div id="pdf-name" class="file-name">No file chosen</div>
+                </div>
+
+                <!-- Settings Grid -->
+                <div class="grid grid-cols-3" style="margin-bottom: 2rem;">
+                    <div class="form-group">
+                        <label class="form-label">📄 Number of Pages</label>
+                        <input type="text" name="num_of_pages" placeholder="all" class="form-input">
+                        <div class="form-help">Enter 'all' or specific number</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">🎤 TTS Model</label>
+                        <select name="TTS_model_type" id="tts-model" class="form-select" onchange="toggleVoiceOptions()">
+                            <option value="edge" selected>Edge (Recommended)</option>
+                            <option value="kokoro">Kokoro</option>
+                        </select>
+                        <div class="form-help">Text-to-speech engine</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">📺 Resolution</label>
+                        <select name="resolution" class="form-select">
+                            <option value="144">144p</option>
+                            <option value="240">240p</option>
+                            <option value="360">360p</option>
+                            <option value="480" selected>480p (Recommended)</option>
+                            <option value="720">720p</option>
+                        </select>
+                        <div class="form-help">Output video quality</div>
+                    </div>
+                </div>
+
+                <!-- Voice Selection (Edge TTS only) -->
+                <div class="form-group" id="voice-selection" style="margin-bottom: 2rem;">
+                    <label class="form-label">🎙️ Voice Selection</label>
+                    <select name="voice" id="voice-select" class="form-select">
+                        <optgroup label="🇺🇸 English (US) - Popular">
+                            <option value="en-US-AriaNeural">Aria (Female) - News, Novel - Positive, Confident</option>
+                            <option value="en-US-AvaNeural">Ava (Female) - Conversation - Expressive, Caring, Pleasant</option>
+                            <option value="en-US-AndrewNeural">Andrew (Male) - Conversation - Warm, Confident, Authentic</option>
+                            <option value="en-US-BrianNeural">Brian (Male) - Conversation - Approachable, Casual, Sincere</option>
+                            <option value="en-US-EmmaNeural">Emma (Female) - Conversation - Cheerful, Clear, Conversational</option>
+                            <option value="en-US-JennyNeural" selected>Jenny (Female) - General - Friendly, Considerate, Comfort</option>
+                            <option value="en-US-ChristopherNeural">Christopher (Male) - News, Novel - Reliable, Authority</option>
+                            <option value="en-US-MichelleNeural">Michelle (Female) - News, Novel - Friendly, Pleasant</option>
+                        </optgroup>
+                        <optgroup label="🇬🇧 English (UK)">
+                            <option value="en-GB-LibbyNeural">Libby (Female) - Friendly, Positive</option>
+                            <option value="en-GB-MaisieNeural">Maisie (Female) - Friendly, Positive</option>
+                            <option value="en-GB-RyanNeural">Ryan (Male) - Friendly, Positive</option>
+                            <option value="en-GB-SoniaNeural">Sonia (Female) - Friendly, Positive</option>
+                            <option value="en-GB-ThomasNeural">Thomas (Male) - Friendly, Positive</option>
+                        </optgroup>
+                        <optgroup label="🇦🇺 English (Australia)">
+                            <option value="en-AU-NatashaNeural">Natasha (Female) - Friendly, Positive</option>
+                            <option value="en-AU-WilliamNeural">William (Male) - Friendly, Positive</option>
+                        </optgroup>
+                        <optgroup label="🇨🇦 English (Canada)">
+                            <option value="en-CA-ClaraNeural">Clara (Female) - Friendly, Positive</option>
+                            <option value="en-CA-LiamNeural">Liam (Male) - Friendly, Positive</option>
+                        </optgroup>
+                        <optgroup label="🇪🇸 Spanish">
+                            <option value="es-ES-AlvaroNeural">Alvaro (Male) - Spain - Friendly, Positive</option>
+                            <option value="es-ES-ElviraNeural">Elvira (Female) - Spain - Friendly, Positive</option>
+                            <option value="es-MX-DaliaNeural">Dalia (Female) - Mexico - Friendly, Positive</option>
+                            <option value="es-MX-JorgeNeural">Jorge (Male) - Mexico - Friendly, Positive</option>
+                            <option value="es-US-AlonsoNeural">Alonso (Male) - US - Friendly, Positive</option>
+                            <option value="es-US-PalomaNeural">Paloma (Female) - US - Friendly, Positive</option>
+                        </optgroup>
+                        <optgroup label="🇫🇷 French">
+                            <option value="fr-FR-DeniseNeural">Denise (Female) - France - Friendly, Positive</option>
+                            <option value="fr-FR-HenriNeural">Henri (Male) - France - Friendly, Positive</option>
+                            <option value="fr-CA-SylvieNeural">Sylvie (Female) - Canada - Friendly, Positive</option>
+                            <option value="fr-CA-AntoineNeural">Antoine (Male) - Canada - Friendly, Positive</option>
+                        </optgroup>
+                        <optgroup label="🇩🇪 German">
+                            <option value="de-DE-KatjaNeural">Katja (Female) - Germany - Friendly, Positive</option>
+                            <option value="de-DE-ConradNeural">Conrad (Male) - Germany - Friendly, Positive</option>
+                            <option value="de-AT-IngridNeural">Ingrid (Female) - Austria - Friendly, Positive</option>
+                            <option value="de-CH-LeniNeural">Leni (Female) - Switzerland - Friendly, Positive</option>
+                        </optgroup>
+                        <optgroup label="🇮🇹 Italian">
+                            <option value="it-IT-ElsaNeural">Elsa (Female) - Friendly, Positive</option>
+                            <option value="it-IT-IsabellaNeural">Isabella (Female) - Friendly, Positive</option>
+                            <option value="it-IT-DiegoNeural">Diego (Male) - Friendly, Positive</option>
+                        </optgroup>
+                        <optgroup label="🇵🇹 Portuguese">
+                            <option value="pt-BR-FranciscaNeural">Francisca (Female) - Brazil - Friendly, Positive</option>
+                            <option value="pt-BR-AntonioNeural">Antonio (Male) - Brazil - Friendly, Positive</option>
+                            <option value="pt-PT-RaquelNeural">Raquel (Female) - Portugal - Friendly, Positive</option>
+                            <option value="pt-PT-DuarteNeural">Duarte (Male) - Portugal - Friendly, Positive</option>
+                        </optgroup>
+                        <optgroup label="🇯🇵 Japanese">
+                            <option value="ja-JP-NanamiNeural">Nanami (Female) - Friendly, Positive</option>
+                            <option value="ja-JP-KeitaNeural">Keita (Male) - Friendly, Positive</option>
+                        </optgroup>
+                        <optgroup label="🇰🇷 Korean">
+                            <option value="ko-KR-SunHiNeural">SunHi (Female) - Friendly, Positive</option>
+                            <option value="ko-KR-InJoonNeural">InJoon (Male) - Friendly, Positive</option>
+                        </optgroup>
+                        <optgroup label="🇨🇳 Chinese">
+                            <option value="zh-CN-XiaoxiaoNeural">Xiaoxiao (Female) - Mandarin - Warm</option>
+                            <option value="zh-CN-YunxiNeural">Yunxi (Male) - Mandarin - Lively, Sunshine</option>
+                            <option value="zh-CN-XiaoyiNeural">Xiaoyi (Female) - Mandarin - Lively</option>
+                        </optgroup>
+                        <optgroup label="🇮🇳 Hindi">
+                            <option value="hi-IN-SwaraNeural">Swara (Female) - Friendly, Positive</option>
+                            <option value="hi-IN-MadhurNeural">Madhur (Male) - Friendly, Positive</option>
+                        </optgroup>
+                        <optgroup label="🇷🇺 Russian">
+                            <option value="ru-RU-SvetlanaNeural">Svetlana (Female) - Friendly, Positive</option>
+                            <option value="ru-RU-DmitryNeural">Dmitry (Male) - Friendly, Positive</option>
+                        </optgroup>
+                        <optgroup label="🌍 Other Languages">
+                            <option value="ar-SA-ZariyahNeural">Zariyah (Female) - Arabic (Saudi) - Friendly, Positive</option>
+                            <option value="ar-SA-HamedNeural">Hamed (Male) - Arabic (Saudi) - Friendly, Positive</option>
+                            <option value="nl-NL-ColetteNeural">Colette (Female) - Dutch - Friendly, Positive</option>
+                            <option value="sv-SE-SofieNeural">Sofie (Female) - Swedish - Friendly, Positive</option>
+                            <option value="no-NO-PernilleNeural">Pernille (Female) - Norwegian - Friendly, Positive</option>
+                            <option value="da-DK-ChristelNeural">Christel (Female) - Danish - Friendly, Positive</option>
+                            <option value="fi-FI-NooraNeural">Noora (Female) - Finnish - Friendly, Positive</option>
+                            <option value="pl-PL-ZofiaNeural">Zofia (Female) - Polish - Friendly, Positive</option>
+                            <option value="tr-TR-EmelNeural">Emel (Female) - Turkish - Friendly, Positive</option>
+                            <option value="th-TH-PremwadeeNeural">Premwadee (Female) - Thai - Friendly, Positive</option>
+                            <option value="vi-VN-HoaiMyNeural">HoaiMy (Female) - Vietnamese - Friendly, Positive</option>
+                        </optgroup>
+                    </select>
+                    <div class="form-help">Choose a voice for text-to-speech narration</div>
+                </div>
+
+                <!-- Extra Prompt Section -->
+                <div class="form-group" style="margin-bottom: 2rem;">
+                    <label class="form-label">
+                        💬 Additional Instructions (Optional)
+                    </label>
+                    <textarea 
+                        name="extra_prompt" 
+                        id="extra_prompt" 
+                        class="form-input" 
+                        rows="4" 
+                        placeholder="Provide any additional instructions or specific requirements for your video generation..."
+                        style="resize: vertical; min-height: 100px;"
+                    ></textarea>
+                    <div class="form-help">
+                        Add specific instructions, style preferences, or any special requirements for the AI processing
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" class="btn btn-primary btn-lg" style="width: 100%;" id="submit-btn">
+                    🚀 Generate Video
+                </button>
+
+                <!-- Processing Status -->
+                <div id="processing" style="display: none; margin-top: 1.5rem;">
+                    <div class="status-indicator status-processing" style="width: 100%; justify-content: center;">
+                        <div class="spinner"></div>
+                        <span>Processing your files...</span>
+                    </div>
+                    <div style="margin-top: 1rem; padding: 1rem; background: var(--surface-secondary); border-radius: 12px; text-align: center;">
+                        <p style="margin: 0; color: var(--text-secondary); font-size: 0.9rem;">
+                            This may take a few minutes. You can check progress in the Downloads section.
+                        </p>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Features Section -->
+    <div class="grid grid-cols-3" style="max-width: 900px; margin: 0 auto;">
+        <div class="card">
+            <div class="card-body" style="text-align: center;">
+                <div style="font-size: 3rem; margin-bottom: 1rem;">🎯</div>
+                <h3>AI-Powered</h3>
+                <p style="color: var(--text-secondary); margin: 0;">
+                    Advanced AI algorithms process your content intelligently
+                </p>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body" style="text-align: center;">
+                <div style="font-size: 3rem; margin-bottom: 1rem;">⚡</div>
+                <h3>Fast Processing</h3>
+                <p style="color: var(--text-secondary); margin: 0;">
+                    Quick turnaround times for your video generation needs
+                </p>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body" style="text-align: center;">
+                <div style="font-size: 3rem; margin-bottom: 1rem;">🎨</div>
+                <h3>High Quality</h3>
+                <p style="color: var(--text-secondary); margin: 0;">
+                    Professional-grade output with multiple resolution options
+                </p>
+            </div>
+        </div>
+    </div>
+
+{% else %}
+    <!-- Not Logged In -->
+    <div class="card" style="max-width: 500px; margin: 0 auto;">
+        <div class="card-body" style="text-align: center; padding: 3rem 2rem;">
+            <div style="font-size: 4rem; margin-bottom: 1.5rem;">🔐</div>
+            <h2>Welcome to Video Generator</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 2rem; line-height: 1.6;">
+                Please log in to access the AI-powered video generator and start creating amazing content from your videos and PDFs.
+            </p>
+            <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+                <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg">
+                    🚀 Get Started
+                </a>
+                <a href="{{ url_for('signup') }}" class="btn btn-secondary">
+                    ✨ Create Account
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Features Preview -->
+    <div class="grid grid-cols-3" style="max-width: 900px; margin: 3rem auto 0;">
+        <div class="card">
+            <div class="card-body" style="text-align: center;">
+                <div style="font-size: 2.5rem; margin-bottom: 1rem;">🎬</div>
+                <h3>Video Processing</h3>
+                <p style="color: var(--text-secondary); margin: 0; font-size: 0.9rem;">
+                    Convert and enhance your video content with AI
+                </p>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body" style="text-align: center;">
+                <div style="font-size: 2.5rem; margin-bottom: 1rem;">📄</div>
+                <h3>PDF Integration</h3>
+                <p style="color: var(--text-secondary); margin: 0; font-size: 0.9rem;">
+                    Seamlessly combine PDF content with video
+                </p>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body" style="text-align: center;">
+                <div style="font-size: 2.5rem; margin-bottom: 1rem;">🎤</div>
+                <h3>Text-to-Speech</h3>
+                <p style="color: var(--text-secondary); margin: 0; font-size: 0.9rem;">
+                    Multiple TTS engines for natural voice synthesis
+                </p>
+            </div>
+        </div>
+    </div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Toggle voice options based on TTS model selection
+    function toggleVoiceOptions() {
+        const ttsModel = document.getElementById('tts-model').value;
+        const voiceSelection = document.getElementById('voice-selection');
+        
+        if (ttsModel === 'edge') {
+            voiceSelection.style.display = 'block';
+            voiceSelection.style.opacity = '1';
+            voiceSelection.style.transform = 'translateY(0)';
+        } else {
+            voiceSelection.style.display = 'none';
+            voiceSelection.style.opacity = '0';
+            voiceSelection.style.transform = 'translateY(-10px)';
+        }
+    }
+
+    // Enhanced file name update with validation
+    function updateFileName(input, elementId, uploadId) {
+        const fileNameElement = document.getElementById(elementId);
+        const uploadElement = document.getElementById(uploadId);
+        
+        if (input.files.length > 0) {
+            const file = input.files[0];
+            const fileName = file.name;
+            const fileSize = (file.size / (1024 * 1024)).toFixed(2); // MB
+            
+            // Validate file size
+            const maxSize = input.accept.includes('.mp4') ? 100 : 50; // MB
+            if (!validateFileSize(file, maxSize)) {
+                fileNameElement.textContent = `File too large (${fileSize}MB). Max: ${maxSize}MB`;
+                fileNameElement.style.color = 'var(--error-500)';
+                uploadElement.style.borderColor = 'var(--error-500)';
+                input.value = ''; // Clear the input
+                return;
+            }
+            
+            fileNameElement.textContent = `${fileName} (${fileSize}MB)`;
+            fileNameElement.classList.add('has-file');
+            uploadElement.classList.add('has-file');
+        } else {
+            fileNameElement.textContent = "No file chosen";
+            fileNameElement.classList.remove('has-file');
+            uploadElement.classList.remove('has-file');
+        }
+    }
+
+    // Enhanced form submission
+    document.getElementById("upload-form").addEventListener("submit", function(event) {
+        event.preventDefault();
+        
+        // Validate form
+        if (!validateForm(this)) {
+            alert('Please fill in all required fields correctly.');
+            return;
+        }
+        
+        const processingDiv = document.getElementById("processing");
+        const submitBtn = document.getElementById("submit-btn");
+        const originalText = submitBtn.innerHTML;
+        
+        // Show processing state
+        processingDiv.style.display = "block";
+        showLoading(submitBtn, "Processing...");
+        
+        const formData = new FormData(this);
+
+        fetch("/process", {
+            method: "POST",
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === "success") {
+                processingDiv.innerHTML = `
+                    <div class="status-indicator status-success" style="width: 100%; justify-content: center;">
+                        ✅ ${data.message}
+                    </div>
+                    <div style="margin-top: 1rem; text-align: center;">
+                        <a href="/download" class="btn btn-primary">View Downloads</a>
+                    </div>
+                `;
+            } else {
+                processingDiv.innerHTML = `
+                    <div class="status-indicator status-error" style="width: 100%; justify-content: center;">
+                        ❌ ${data.message}
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            processingDiv.innerHTML = `
+                <div class="status-indicator status-error" style="width: 100%; justify-content: center;">
+                    ⚠️ An error occurred: ${error}
+                </div>
+            `;
+        })
+        .finally(() => {
+            hideLoading(submitBtn, originalText);
+        });
+    });
+
+    // Add drag and drop functionality
+    document.querySelectorAll('.file-upload').forEach(uploadArea => {
+        const input = uploadArea.querySelector('input[type="file"]');
+        
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, () => {
+                uploadArea.style.borderColor = 'var(--primary-500)';
+                uploadArea.style.background = 'var(--primary-50)';
+            });
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, () => {
+                uploadArea.style.borderColor = 'var(--border)';
+                uploadArea.style.background = 'var(--surface-secondary)';
+            });
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                input.files = files;
+                input.dispatchEvent(new Event('change'));
+            }
+        });
+    });
+
+    // Initialize voice options visibility on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        toggleVoiceOptions();
+    });
+
+    // Helper functions
+    function validateFileSize(file, maxSize) {
+        return file.size <= maxSize * 1024 * 1024;
+    }
+
+    function validateForm(form) {
+        const pdfInput = form.querySelector('input[name="pdf"]');
+        return pdfInput.files.length > 0;
+    }
+
+    function showLoading(button, text) {
+        button.disabled = true;
+        button.innerHTML = `<div class="spinner"></div> ${text}`;
+    }
+
+    function hideLoading(button, originalText) {
+        button.disabled = false;
+        button.innerHTML = originalText;
+    }
+</script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.form-input[rows] {
+    font-family: inherit;
+    line-height: 1.5;
+}
+
+.form-input[rows]:focus {
+    outline: none;
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    transform: translateY(-1px);
+}
+
+#voice-selection {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#voice-select optgroup {
+    font-weight: 600;
+    color: var(--text-primary);
+    background: var(--surface-secondary);
+}
+
+#voice-select option {
+    padding: 0.5rem;
+    color: var(--text-secondary);
+    background: var(--surface);
+}
+
+#voice-select option:hover {
+    background: var(--primary-50);
+}
+
+[data-theme="dark"] #voice-select optgroup {
+    background: var(--surface-secondary);
+}
+
+[data-theme="dark"] #voice-select option {
+    background: var(--surface);
+}
+</style>
+{% endblock %}

@@ -1,0 +1,40 @@
+# Flask and backend development
+Flask==2.2.5
+flask-wtf==1.1.1
+Werkzeug==2.2.3
+flask-login==0.6.2
+flask-sqlalchemy==3.0.3
+flask-bcrypt==1.0.1
+
+# Google Gemini API
+google-genai
+
+# Whisper and speech processing
+edge-tts==7.0.0
+
+# Video and audio processing
+moviepy==1.0.3
+ffmpeg-python==0.2.0
+pydub==0.25.1
+
+# PDF processing
+pdf2image==1.16.0
+Pillow>=10.0.0,<12.0.0
+
+# kokoro and misaki (with Chinese support)
+kokoro==0.8.4
+misaki[zh]==0.8.4
+
+# OpenAI Whisper (最新功能)
+git+https://github.com/openai/whisper.git
+
+# System tools
+tqdm
+nest_asyncio==1.5.6
+# requests, python-dotenv, PyPDF2, ipython 建議不指定版本
+SoundFile==0.12.1
+
+python-dotenv
+PyPDF2
+ipython
+pyngrok
