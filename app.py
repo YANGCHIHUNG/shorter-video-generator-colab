@@ -5,6 +5,8 @@ import threading
 import platform
 import shutil
 import secrets
+import sys
+import warnings
 from werkzeug.utils import secure_filename
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
@@ -12,6 +14,21 @@ from flask_login import LoginManager, UserMixin, login_user, logout_user, login_
 from api.whisper_LLM_api import api
 from pyngrok import ngrok
 from dotenv import load_dotenv
+
+# ✅ Suppress warnings and error messages
+warnings.filterwarnings("ignore")
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # Suppress TensorFlow warnings
+os.environ['CUDA_VISIBLE_DEVICES'] = ''  # Disable CUDA warnings if not needed
+os.environ['XDG_RUNTIME_DIR'] = '/tmp/runtime-root'  # Fix XDG_RUNTIME_DIR warning
+
+# Suppress ALSA warnings
+try:
+    import alsaaudio
+    # Redirect stderr to devnull temporarily for ALSA
+    stderr = sys.stderr
+    sys.stderr = open(os.devnull, 'w')
+except ImportError:
+    pass
 
 load_dotenv()
 
