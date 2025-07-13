@@ -24,7 +24,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app.config["UPLOAD_FOLDER"] = os.path.join(BASE_DIR, "uploads")
 app.config["OUTPUT_FOLDER"] = os.path.join(BASE_DIR, "output")
 app.config["ALLOWED_EXTENSIONS"] = {"mp4", "pdf"}
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///users.db"
+app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{os.path.join(BASE_DIR, 'instance', 'users.db')}"
 
 system_os = platform.system()
 db = SQLAlchemy(app)
@@ -40,6 +40,7 @@ admin_password = os.getenv("admin_password")
 # ✅ Ensure Upload & Output Folders Exist
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 os.makedirs(app.config["OUTPUT_FOLDER"], exist_ok=True)
+os.makedirs(os.path.join(BASE_DIR, "instance"), exist_ok=True)
 
 # ✅ User Model
 class User(UserMixin, db.Model):
@@ -182,7 +183,7 @@ def process_video():
         )
         processing_thread.start()
         app.logger.info("Processing thread started successfully.")
-        return jsonify({"status": "success", "message": "🚀 Processing started!"}), 200
+        return jsonify({"status": "success", "message": "Processing... Please wait"}), 200
     except Exception as e:
         app.logger.error(f"Error in /process: {e}", exc_info=True)
         return jsonify({"status": "error", "message": f"Server error: {e}"}), 500
@@ -271,6 +272,35 @@ with app.app_context():
 @app.route("/documentation")
 def documentation():
     return render_template("documentation.html")
+
+# ✅ Check Processing Status Endpoint
+@app.route("/status")
+@login_required
+def check_status():
+    user_folder = os.path.join(app.config["OUTPUT_FOLDER"], str(current_user.id), 'video')
+    processing_file = os.path.join(user_folder, "processing.txt")
+    
+    if not os.path.exists(processing_file):
+        # Check if there are any video files
+        if os.path.exists(user_folder):
+            files = [f for f in os.listdir(user_folder) if f.endswith(".mp4")]
+            if files:
+                return jsonify({"status": "completed", "message": "Video generation completed!"})
+        return jsonify({"status": "idle", "message": "No processing in progress"})
+    
+    # Read the status from the file
+    try:
+        with open(processing_file, "r") as f:
+            status_content = f.read().strip()
+        
+        if status_content == "processing":
+            return jsonify({"status": "processing", "message": "Processing... Please wait"})
+        elif status_content == "failed":
+            return jsonify({"status": "failed", "message": "Processing failed"})
+        else:
+            return jsonify({"status": "processing", "message": "Processing... Please wait"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": f"Error checking status: {str(e)}"})
 
 if __name__ == "__main__":
     public_url = ngrok.connect(5001)

@@ -383,14 +383,21 @@
         .then(response => response.json())
         .then(data => {
             if (data.status === "success") {
+                // Show initial processing message
                 processingDiv.innerHTML = `
-                    <div class="status-indicator status-success" style="width: 100%; justify-content: center;">
-                        ✅ ${data.message}
+                    <div class="status-indicator status-processing" style="width: 100%; justify-content: center;">
+                        <div class="spinner"></div>
+                        <span id="status-message">Processing... Please wait</span>
                     </div>
-                    <div style="margin-top: 1rem; text-align: center;">
-                        <a href="/download" class="btn btn-primary">View Downloads</a>
+                    <div style="margin-top: 1rem; padding: 1rem; background: var(--surface-secondary); border-radius: 12px; text-align: center;">
+                        <p style="margin: 0; color: var(--text-secondary); font-size: 0.9rem;">
+                            This may take a few minutes. Please don't close this page.
+                        </p>
                     </div>
                 `;
+                
+                // Start checking status periodically
+                checkProcessingStatus();
             } else {
                 processingDiv.innerHTML = `
                     <div class="status-indicator status-error" style="width: 100%; justify-content: center;">
@@ -410,6 +417,47 @@
             hideLoading(submitBtn, originalText);
         });
     });
+
+    // Function to check processing status periodically
+    function checkProcessingStatus() {
+        const statusInterval = setInterval(() => {
+            fetch("/status")
+                .then(response => response.json())
+                .then(data => {
+                    const statusMessage = document.getElementById("status-message");
+                    const processingDiv = document.getElementById("processing");
+                    
+                    if (data.status === "completed") {
+                        // Show completion message
+                        processingDiv.innerHTML = `
+                            <div class="status-indicator status-success" style="width: 100%; justify-content: center;">
+                                ✅ Done
+                            </div>
+                            <div style="margin-top: 1rem; text-align: center;">
+                                <a href="/download" class="btn btn-primary">View Downloads</a>
+                            </div>
+                        `;
+                        clearInterval(statusInterval);
+                    } else if (data.status === "failed") {
+                        // Show failure message
+                        processingDiv.innerHTML = `
+                            <div class="status-indicator status-error" style="width: 100%; justify-content: center;">
+                                ❌ Processing failed
+                            </div>
+                        `;
+                        clearInterval(statusInterval);
+                    } else if (data.status === "processing") {
+                        // Update status message if it exists
+                        if (statusMessage) {
+                            statusMessage.textContent = data.message;
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error("Error checking status:", error);
+                });
+        }, 3000); // Check every 3 seconds
+    }
 
     // Add drag and drop functionality
     document.querySelectorAll('.file-upload').forEach(uploadArea => {
