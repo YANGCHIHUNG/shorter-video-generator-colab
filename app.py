@@ -18,8 +18,11 @@ load_dotenv()
 # ✅ Flask Configuration
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "supersecretkey"
-app.config["UPLOAD_FOLDER"] = "uploads"
-app.config["OUTPUT_FOLDER"] = "output"
+
+# ✅ Get absolute paths relative to the script directory
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+app.config["UPLOAD_FOLDER"] = os.path.join(BASE_DIR, "uploads")
+app.config["OUTPUT_FOLDER"] = os.path.join(BASE_DIR, "output")
 app.config["ALLOWED_EXTENSIONS"] = {"mp4", "pdf"}
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///users.db"
 
