@@ -14,6 +14,8 @@ from flask_login import LoginManager, UserMixin, login_user, logout_user, login_
 from api.whisper_LLM_api import api, api_with_edited_script, api_generate_text_only
 from pyngrok import ngrok
 from dotenv import load_dotenv
+import json
+import tempfile
 
 # ✅ Suppress warnings and error messages
 warnings.filterwarnings("ignore")
@@ -35,6 +37,9 @@ load_dotenv()
 # ✅ Flask Configuration
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "supersecretkey"
+app.config["SESSION_TYPE"] = "filesystem"
+app.config["SESSION_PERMANENT"] = False
+app.config["SESSION_USE_SIGNER"] = True
 
 # ✅ Get absolute paths relative to the script directory
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -354,18 +359,22 @@ def generate_text():
             generated_pages = loop.run_until_complete(
                 api_generate_text_only(
                     pdf_file_path=pdf_path,
-                    poppler_path=None,
+                    poppler_path=None,  # Use system-installed Poppler
                     num_of_pages="all",
                     extra_prompt=extra_prompt if extra_prompt else None,
                     video_path=video_path
                 )
             )
             
-            # Store generated text in session for the edit page
-            session['generated_pages'] = generated_pages
-            session['pdf_path'] = pdf_path
-            session['video_path'] = video_path
-            session['extra_prompt'] = extra_prompt
+            # Store generated text in session for the edit page (with backup)
+            set_session_data('generated_pages', generated_pages)
+            set_session_data('pdf_path', pdf_path)
+            set_session_data('video_path', video_path)
+            set_session_data('extra_prompt', extra_prompt)
+            
+            # Debug logging
+            app.logger.info(f"Session data saved - PDF: {pdf_path}, Video: {video_path}, Pages: {len(generated_pages)}")
+            app.logger.info(f"Session keys after saving: {list(session.keys())}")
             
             return jsonify({
                 'status': 'success',
@@ -403,19 +412,24 @@ def process_with_edited_text():
         TTS_model_type = request_data.get('TTS_model_type', 'edge')
         voice = request_data.get('voice', 'zh-TW-YunJheNeural')
         
-        # Get saved parameters from session
-        pdf_path = session.get('pdf_path')
-        video_path = session.get('video_path')
-        extra_prompt = session.get('extra_prompt')
+        # Get saved parameters from session (with backup fallback)
+        pdf_path = get_session_data('pdf_path')
+        video_path = get_session_data('video_path')
+        extra_prompt = get_session_data('extra_prompt')
         
+        # Enhanced debug logging
         app.logger.info(f"Session data - PDF: {pdf_path}, Video: {video_path}, Pages: {len(edited_pages) if edited_pages else 0}")
+        app.logger.info(f"Session keys: {list(session.keys())}")
+        app.logger.info(f"Request data keys: {list(request_data.keys())}")
         
         if not pdf_path or not edited_pages:
             missing_items = []
             if not pdf_path:
                 missing_items.append("PDF path")
+                app.logger.error(f"PDF path is missing from session. Session PDF path: {pdf_path}")
             if not edited_pages:
                 missing_items.append("edited pages")
+                app.logger.error(f"Edited pages is missing from request. Pages: {edited_pages}")
             return jsonify({
                 "status": "error", 
                 "message": f"Missing required data: {', '.join(missing_items)}"
@@ -470,7 +484,7 @@ def run_processing_with_edited_text(video_path, pdf_path, edited_pages, resoluti
             video_path=video_path,
             pdf_file_path=pdf_path,
             edited_script=edited_script,
-            poppler_path=None,
+            poppler_path=None,  # Use system-installed Poppler
             output_audio_dir=os.path.join(user_folder, 'audio'),
             output_video_dir=os.path.join(user_folder, 'video'),
             output_text_path=os.path.join(user_folder, "text_output.txt"),
@@ -497,12 +511,75 @@ def run_processing_with_edited_text(video_path, pdf_path, edited_pages, resoluti
 @login_required
 def edit_text():
     """Display the text editing page"""
-    pages = request.args.get('pages')
-    if not pages:
+    # Check session data (with backup fallback)
+    pdf_path = get_session_data('pdf_path')
+    generated_pages = get_session_data('generated_pages', [])
+    
+    app.logger.info(f"Edit text page - Session data: PDF={pdf_path}, Pages={len(generated_pages)}")
+    app.logger.info(f"Edit text page - Session keys: {list(session.keys())}")
+    
+    if not pdf_path or not generated_pages:
         flash('No generated text found. Please start from the upload page.', 'error')
         return redirect(url_for('index'))
     
     return render_template('edit_text.html')
+
+# ✅ Session backup storage (in case Flask session fails)
+def save_session_backup(user_id, data):
+    """Save session data to a backup file"""
+    backup_dir = os.path.join(app.config["OUTPUT_FOLDER"], str(user_id))
+    os.makedirs(backup_dir, exist_ok=True)
+    backup_file = os.path.join(backup_dir, "session_backup.json")
+    
+    try:
+        with open(backup_file, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        app.logger.info(f"Session backup saved to {backup_file}")
+    except Exception as e:
+        app.logger.error(f"Failed to save session backup: {e}")
+
+def load_session_backup(user_id):
+    """Load session data from backup file"""
+    backup_dir = os.path.join(app.config["OUTPUT_FOLDER"], str(user_id))
+    backup_file = os.path.join(backup_dir, "session_backup.json")
+    
+    if not os.path.exists(backup_file):
+        return {}
+    
+    try:
+        with open(backup_file, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        app.logger.info(f"Session backup loaded from {backup_file}")
+        return data
+    except Exception as e:
+        app.logger.error(f"Failed to load session backup: {e}")
+        return {}
+
+def get_session_data(key, default=None):
+    """Get session data with backup fallback"""
+    # Try Flask session first
+    value = session.get(key, default)
+    
+    # If not found and we have a current user, try backup
+    if value is None and current_user.is_authenticated:
+        backup_data = load_session_backup(current_user.id)
+        value = backup_data.get(key, default)
+        
+        # If found in backup, restore to session
+        if value is not None:
+            session[key] = value
+    
+    return value
+
+def set_session_data(key, value):
+    """Set session data with backup"""
+    session[key] = value
+    
+    # Also save to backup if user is authenticated
+    if current_user.is_authenticated:
+        backup_data = load_session_backup(current_user.id)
+        backup_data[key] = value
+        save_session_backup(current_user.id, backup_data)
 
 if __name__ == "__main__":
     public_url = ngrok.connect(5001)
