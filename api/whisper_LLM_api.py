@@ -286,13 +286,16 @@ async def api_with_edited_script(video_path, pdf_file_path, edited_script, poppl
     # Ensure directories exist
     ensure_directories_exist(output_audio_dir, output_video_dir, os.path.dirname(output_text_path))
     
+    # Validate resolution input
+    if resolution not in RESOLUTION_MAP:
+        logger.error(f"⚠️ Invalid resolution selected: {resolution}p. Defaulting to 480p.")
+        resolution = 480
+    TARGET_WIDTH, TARGET_HEIGHT = RESOLUTION_MAP[resolution]
+    logger.info(f"📏 Selected Resolution: {resolution}p ({TARGET_WIDTH}x{TARGET_HEIGHT})")
+    
     # Save the edited script
     with open(output_text_path, 'w', encoding='utf-8') as f:
         f.write(edited_script)
-    
-    # Convert PDF to images
-    from utility.pdf import pdf_to_images
-    images = pdf_to_images(pdf_file_path, poppler_path)
     
     # Parse edited script into pages
     pages = []
@@ -309,57 +312,115 @@ async def api_with_edited_script(video_path, pdf_file_path, edited_script, poppl
     if current_page.strip():
         pages.append(current_page.strip())
     
+    logger.info(f"📝 Parsed {len(pages)} pages from edited script")
+    
+    # Convert PDF pages to images
+    logger.info(f"🖼️ Converting PDF pages to images...")
+    try:
+        pdf_images = convert_from_path(
+            pdf_file_path,
+            poppler_path=poppler_path,
+            thread_count=THREAD_COUNT
+        )
+        logger.info(f"✅ Successfully converted {len(pdf_images)} PDF pages to images")
+    except Exception as e:
+        logger.error(f"❌ PDF to image conversion failed: {e}", exc_info=True)
+        raise
+    
     # Generate audio for each page
+    logger.info("🔊 Generating speech from edited text...")
     audio_files = []
-    for i, page_text in enumerate(pages):
-        if not page_text.strip():
-            continue
-            
-        audio_filename = f"page_{i+1}.wav"
-        
-        if tts_model == "edge":
-            from utility.api import edge_tts_example
-            audio_file = await edge_tts_example(page_text, output_audio_dir, audio_filename, voice)
-        else:
-            from utility.api import kokoro_tts_example
-            audio_file = await kokoro_tts_example(page_text, output_audio_dir, audio_filename)
-        
-        if audio_file:
-            audio_files.append(audio_file)
+    tasks = []
     
-    # Create video with images and audio
-    if images and audio_files:
-        from moviepy.editor import ImageClip, AudioFileClip, concatenate_videoclips
+    try:
+        for idx, page_text in enumerate(pages):
+            if not page_text.strip():
+                continue
+                
+            filename = f"audio_{idx}.mp3"
+            if tts_model == 'edge':
+                if voice is None:
+                    voice = "zh-TW-YunJheNeural"
+                logger.info(f"🎤 Processing segment {idx} with voice: {voice}")
+                tasks.append(edge_tts_example(page_text, output_audio_dir, filename, voice))
+            elif tts_model == 'kokoro':
+                tasks.append(kokoro_tts_example(page_text, output_audio_dir, filename))
         
-        video_clips = []
-        for i, (image, audio_file) in enumerate(zip(images, audio_files)):
-            if os.path.exists(audio_file):
-                audio_clip = AudioFileClip(audio_file)
-                duration = audio_clip.duration
-                
-                # Resize image to target resolution
-                target_width, target_height = RESOLUTION_MAP.get(resolution, (854, 480))
-                
-                image_clip = ImageClip(image).set_duration(duration)
-                image_clip = image_clip.resize((target_width, target_height))
-                
-                # Add audio to video clip
-                video_clip = image_clip.set_audio(audio_clip)
-                video_clips.append(video_clip)
+        # Generate all audio files
+        audio_files = await asyncio.gather(*tasks)
         
-        if video_clips:
-            final_video = concatenate_videoclips(video_clips)
-            output_video_path = os.path.join(output_video_dir, f"output_video_{resolution}p.mp4")
-            
-            logger.info(f"📤 Exporting final video to: {output_video_path}")
-            final_video.write_videofile(output_video_path, fps=24, codec='libx264')
-            
-            # Clean up
-            final_video.close()
-            for clip in video_clips:
-                clip.close()
+        # Validate audio files
+        valid_audio_files = []
+        for idx, audio_file in enumerate(audio_files):
+            if audio_file and os.path.exists(audio_file) and os.path.getsize(audio_file) > 0:
+                valid_audio_files.append(audio_file)
+                logger.info(f"✅ Audio file for segment {idx} created: {audio_file}")
+            else:
+                logger.error(f"❌ Audio file for segment {idx} failed")
+                raise RuntimeError(f"Audio generation failed for segment {idx}")
+        
+        logger.info(f"✅ All {len(valid_audio_files)} audio files generated successfully!")
+        
+    except Exception as e:
+        logger.error(f"❌ Error during TTS generation: {e}", exc_info=True)
+        raise
+
+    # Create video clips
+    logger.info("🎬 Creating video clips...")
+    video_clips = []
     
-    logger.info("✅ Video processing with edited script completed!")
+    try:
+        for idx, (img, audio_file) in enumerate(zip(pdf_images, valid_audio_files)):
+            # Resize image to target resolution
+            img_resized = img.resize((TARGET_WIDTH, TARGET_HEIGHT), Image.LANCZOS)
+            frame = np.array(img_resized)
+            
+            # Create audio and video clips
+            audioclip = AudioFileClip(audio_file)
+            duration = audioclip.duration
+            image_clip = ImageClip(frame).set_duration(duration)
+            video_clip = image_clip.set_audio(audioclip)
+            video_clips.append(video_clip)
+            
+            logger.info(f"✅ Video clip {idx} created (duration: {duration:.2f}s)")
+    
+    except Exception as e:
+        logger.error(f"❌ Error during video clip creation: {e}", exc_info=True)
+        raise
+
+    # Concatenate and export final video
+    logger.info("📹 Concatenating video clips...")
+    try:
+        final_video = concatenate_videoclips(video_clips, method="chain")
+        
+        output_video_path = os.path.join(output_video_dir, f"output_video_{resolution}p.mp4")
+        logger.info(f"📤 Exporting final video to: {output_video_path}")
+        
+        final_video.write_videofile(
+            output_video_path,
+            fps=24,
+            logger=None,
+            audio_bitrate="50k",
+            write_logfile=False,
+            threads=THREAD_COUNT,
+            ffmpeg_params=[
+                "-b:v", "5M",
+                "-preset", "ultrafast",
+                "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
+                "-pix_fmt", "yuv420p",
+            ],
+        )
+        
+        # Clean up
+        final_video.close()
+        for clip in video_clips:
+            clip.close()
+        
+        logger.info("✅ Video processing with edited script completed!")
+        
+    except Exception as e:
+        logger.error(f"❌ Error during video export: {e}", exc_info=True)
+        raise
 
 async def api_generate_text_only(
     pdf_file_path: str,

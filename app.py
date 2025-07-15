@@ -391,36 +391,53 @@ def process_with_edited_text():
     user_folder = os.path.join(app.config["OUTPUT_FOLDER"], str(current_user.id))
     
     try:
-        # Get edited pages from request
-        edited_pages = request.json.get('pages', [])
-        video_file = request.files.get("video") if request.files else None
-        resolution = request.form.get("resolution") if request.form else request.json.get("resolution")
-        TTS_model_type = request.form.get("TTS_model_type") if request.form else request.json.get("TTS_model_type")
-        voice = request.form.get("voice") if request.form else request.json.get("voice")
+        # Get data from JSON request
+        request_data = request.get_json()
         
-        # Get saved parameters
+        if not request_data:
+            return jsonify({"status": "error", "message": "No data provided"}), 400
+        
+        # Get edited pages from request
+        edited_pages = request_data.get('pages', [])
+        resolution = request_data.get('resolution', 480)
+        TTS_model_type = request_data.get('TTS_model_type', 'edge')
+        voice = request_data.get('voice', 'zh-TW-YunJheNeural')
+        
+        # Get saved parameters from session
         pdf_path = session.get('pdf_path')
-        generation_params = session.get('generation_params', {})
+        video_path = session.get('video_path')
+        extra_prompt = session.get('extra_prompt')
+        
+        app.logger.info(f"Session data - PDF: {pdf_path}, Video: {video_path}, Pages: {len(edited_pages) if edited_pages else 0}")
         
         if not pdf_path or not edited_pages:
-            return jsonify({"status": "error", "message": "Missing required data"}), 400
+            missing_items = []
+            if not pdf_path:
+                missing_items.append("PDF path")
+            if not edited_pages:
+                missing_items.append("edited pages")
+            return jsonify({
+                "status": "error", 
+                "message": f"Missing required data: {', '.join(missing_items)}"
+            }), 400
         
-        # Handle video file if provided
-        video_path = None
-        if video_file and video_file.filename != "":
-            video_path = os.path.join(user_folder, secure_filename(video_file.filename))
-            video_file.save(video_path)
+        # Validate that PDF file still exists
+        if not os.path.exists(pdf_path):
+            return jsonify({
+                "status": "error", 
+                "message": "PDF file not found. Please upload again."
+            }), 400
         
-        # Save edited pages to a temporary file
-        edited_script_path = os.path.join(user_folder, "edited_script.txt")
-        with open(edited_script_path, 'w', encoding='utf-8') as f:
-            for i, page in enumerate(edited_pages):
-                f.write(f"## Page {i+1}\n{page}\n\n")
+        # Convert resolution to int
+        try:
+            resolution = int(resolution)
+        except (ValueError, TypeError):
+            resolution = 480
         
         # Start processing with edited content
         processing_thread = threading.Thread(
             target=run_processing_with_edited_text, 
-            args=(video_path, pdf_path, edited_script_path, resolution, user_folder, TTS_model_type, voice)
+            args=(video_path, pdf_path, edited_pages, resolution, user_folder, TTS_model_type, voice)
         )
         processing_thread.start()
         
@@ -431,7 +448,7 @@ def process_with_edited_text():
         app.logger.error(f"Error in /process_with_edited_text: {e}", exc_info=True)
         return jsonify({"status": "error", "message": f"Server error: {e}"}), 500
 
-def run_processing_with_edited_text(video_path, pdf_path, edited_script_path, resolution, user_folder, TTS_model_type, voice):
+def run_processing_with_edited_text(video_path, pdf_path, edited_pages, resolution, user_folder, TTS_model_type, voice):
     """Background processing task with edited text"""
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
@@ -443,9 +460,10 @@ def run_processing_with_edited_text(video_path, pdf_path, edited_script_path, re
         f.write("processing")
     
     try:
-        # Read edited script
-        with open(edited_script_path, 'r', encoding='utf-8') as f:
-            edited_script = f.read()
+        # Convert edited pages to script format
+        edited_script = ""
+        for i, page in enumerate(edited_pages):
+            edited_script += f"## Page {i+1}\n{page}\n\n"
         
         # Process with edited script
         loop.run_until_complete(api_with_edited_script(
@@ -464,8 +482,6 @@ def run_processing_with_edited_text(video_path, pdf_path, edited_script_path, re
         # Clean up
         if os.path.exists(status_file):
             os.remove(status_file)
-        if os.path.exists(edited_script_path):
-            os.remove(edited_script_path)
             
         app.logger.info("✅ Video Processing with Edited Text Completed!")
         
@@ -473,6 +489,8 @@ def run_processing_with_edited_text(video_path, pdf_path, edited_script_path, re
         app.logger.error(f"❌ Error during processing with edited text: {e}", exc_info=True)
         with open(status_file, "w") as f:
             f.write("failed")
+    finally:
+        loop.close()
 
 # ✅ Text Editing Page
 @app.route('/edit_text')
