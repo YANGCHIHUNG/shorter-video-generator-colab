@@ -354,7 +354,7 @@ def generate_text():
             generated_pages = loop.run_until_complete(
                 api_generate_text_only(
                     pdf_file_path=pdf_path,
-                    poppler_path=POPPLER_PATH,
+                    poppler_path=None,
                     num_of_pages="all",
                     extra_prompt=extra_prompt if extra_prompt else None,
                     video_path=video_path
@@ -485,9 +485,6 @@ def edit_text():
         return redirect(url_for('index'))
     
     return render_template('edit_text.html')
-
-# ✅ Poppler path configuration
-POPPLER_PATH = os.path.join(BASE_DIR, "poppler", "poppler-0.89.0", "bin")
 
 if __name__ == "__main__":
     public_url = ngrok.connect(5001)
