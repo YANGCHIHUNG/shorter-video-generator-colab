@@ -1,0 +1,398 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Generated Text - Video Generator{% endblock %}
+
+{% block content %}
+<div style="max-width: 1000px; margin: 0 auto;">
+    <!-- Header -->
+    <div style="text-align: center; margin-bottom: 3rem;">
+        <h1>✏️ Edit Generated Text</h1>
+        <p class="subtitle">
+            Review and edit the AI-generated text for each page before creating your video
+        </p>
+    </div>
+
+    <!-- Progress Steps -->
+    <div class="progress-steps" style="margin-bottom: 3rem;">
+        <div class="step completed">
+            <div class="step-number">1</div>
+            <div class="step-label">Upload PDF</div>
+        </div>
+        <div class="step active">
+            <div class="step-number">2</div>
+            <div class="step-label">Edit Text</div>
+        </div>
+        <div class="step">
+            <div class="step-number">3</div>
+            <div class="step-label">Generate Video</div>
+        </div>
+    </div>
+
+    <!-- Edit Form -->
+    <form id="edit-form">
+        <div id="pages-container">
+            <!-- Pages will be dynamically loaded here -->
+        </div>
+
+        <!-- Video Settings -->
+        <div class="card" style="margin-top: 2rem;">
+            <div class="card-header">
+                <h3>🎬 Video Settings</h3>
+            </div>
+            <div class="card-body">
+                <div class="grid grid-cols-3">
+                    <div class="form-group">
+                        <label class="form-label">🎤 TTS Model</label>
+                        <select name="TTS_model_type" id="tts-model" class="form-select" onchange="toggleVoiceOptions()">
+                            <option value="edge" selected>Edge (Recommended)</option>
+                            <option value="kokoro">Kokoro</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">📺 Resolution</label>
+                        <select name="resolution" class="form-select">
+                            <option value="144">144p</option>
+                            <option value="240">240p</option>
+                            <option value="360">360p</option>
+                            <option value="480" selected>480p (Recommended)</option>
+                            <option value="720">720p</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" id="voice-selection">
+                        <label class="form-label">🎙️ Voice</label>
+                        <select name="voice" id="voice-select" class="form-select">
+                            <optgroup label="🇨🇳 Chinese (中文)">
+                                <option value="zh-CN-XiaoxiaoNeural">Xiaoxiao (Female) - Warm</option>
+                                <option value="zh-CN-YunxiNeural">Yunxi (Male) - Lively</option>
+                                <option value="zh-CN-XiaoyiNeural">Xiaoyi (Female) - Lively</option>
+                                <option value="zh-TW-HsiaoChenNeural">HsiaoChen (Female) - Traditional</option>
+                                <option value="zh-TW-YunJheNeural">YunJhe (Male) - Traditional</option>
+                            </optgroup>
+                            <optgroup label="🇺🇸 English (US)">
+                                <option value="en-US-JennyNeural" selected>Jenny (Female) - Friendly</option>
+                                <option value="en-US-AriaNeural">Aria (Female) - Confident</option>
+                                <option value="en-US-AndrewNeural">Andrew (Male) - Warm</option>
+                                <option value="en-US-BrianNeural">Brian (Male) - Casual</option>
+                                <option value="en-US-EmmaNeural">Emma (Female) - Cheerful</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div style="display: flex; gap: 1rem; justify-content: space-between; margin-top: 2rem;">
+            <a href="/" class="btn btn-secondary">
+                ← Back to Upload
+            </a>
+            <div style="display: flex; gap: 1rem;">
+                <button type="button" class="btn btn-outline" onclick="resetAllText()">
+                    🔄 Reset All
+                </button>
+                <button type="submit" class="btn btn-primary btn-lg" id="generate-btn">
+                    🚀 Generate Video
+                </button>
+            </div>
+        </div>
+
+        <!-- Processing Status -->
+        <div id="processing" style="display: none; margin-top: 2rem;">
+            <div class="status-indicator status-processing" style="width: 100%; justify-content: center;">
+                <div class="spinner"></div>
+                <span id="status-message">Processing your video...</span>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let originalPages = [];
+    let currentPages = [];
+
+    // Load generated text from server
+    document.addEventListener('DOMContentLoaded', function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const pages = urlParams.get('pages');
+        
+        if (pages) {
+            try {
+                currentPages = JSON.parse(decodeURIComponent(pages));
+                originalPages = [...currentPages];
+                renderPages();
+            } catch (e) {
+                console.error('Error parsing pages:', e);
+                alert('Error loading generated text. Please try again.');
+                window.location.href = '/';
+            }
+        } else {
+            alert('No generated text found. Please start from the upload page.');
+            window.location.href = '/';
+        }
+    });
+
+    function renderPages() {
+        const container = document.getElementById('pages-container');
+        container.innerHTML = '';
+
+        currentPages.forEach((page, index) => {
+            const pageDiv = document.createElement('div');
+            pageDiv.className = 'card';
+            pageDiv.style.marginBottom = '1.5rem';
+            
+            pageDiv.innerHTML = `
+                <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3>📄 Page ${index + 1}</h3>
+                    <div>
+                        <button type="button" class="btn btn-sm btn-outline" onclick="resetPage(${index})">
+                            🔄 Reset
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline" onclick="previewAudio(${index})">
+                            🎵 Preview
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <textarea 
+                        class="form-input page-content" 
+                        rows="8" 
+                        placeholder="Enter content for page ${index + 1}..."
+                        style="resize: vertical; min-height: 200px;"
+                        oninput="updatePage(${index}, this.value)"
+                    >${page}</textarea>
+                    <div class="form-help">
+                        <span class="character-count">Characters: ${page.length}</span>
+                        <span style="margin-left: 1rem;">Estimated speech time: ~${Math.ceil(page.length / 200)} seconds</span>
+                    </div>
+                </div>
+            `;
+            
+            container.appendChild(pageDiv);
+        });
+    }
+
+    function updatePage(index, content) {
+        currentPages[index] = content;
+        
+        // Update character count
+        const pageDiv = document.querySelector(`#pages-container .card:nth-child(${index + 1})`);
+        const charCount = pageDiv.querySelector('.character-count');
+        const estimatedTime = Math.ceil(content.length / 200);
+        charCount.innerHTML = `Characters: ${content.length}`;
+        charCount.nextElementSibling.innerHTML = `Estimated speech time: ~${estimatedTime} seconds`;
+    }
+
+    function resetPage(index) {
+        if (confirm('Are you sure you want to reset this page to the original text?')) {
+            currentPages[index] = originalPages[index];
+            renderPages();
+        }
+    }
+
+    function resetAllText() {
+        if (confirm('Are you sure you want to reset all pages to the original text?')) {
+            currentPages = [...originalPages];
+            renderPages();
+        }
+    }
+
+    function previewAudio(index) {
+        const content = currentPages[index];
+        const voice = document.getElementById('voice-select').value;
+        
+        // This would be implemented to preview audio
+        alert(`Preview audio for page ${index + 1}\nVoice: ${voice}\nContent: ${content.substring(0, 100)}...`);
+    }
+
+    function toggleVoiceOptions() {
+        const ttsModel = document.getElementById('tts-model').value;
+        const voiceSelection = document.getElementById('voice-selection');
+        
+        if (ttsModel === 'edge') {
+            voiceSelection.style.display = 'block';
+        } else {
+            voiceSelection.style.display = 'none';
+        }
+    }
+
+    // Form submission
+    document.getElementById('edit-form').addEventListener('submit', function(event) {
+        event.preventDefault();
+        
+        const formData = new FormData(this);
+        const processingDiv = document.getElementById('processing');
+        const generateBtn = document.getElementById('generate-btn');
+        
+        // Show processing state
+        processingDiv.style.display = 'block';
+        generateBtn.disabled = true;
+        generateBtn.innerHTML = '<div class="spinner"></div> Processing...';
+        
+        // Prepare data
+        const requestData = {
+            pages: currentPages,
+            TTS_model_type: formData.get('TTS_model_type'),
+            resolution: formData.get('resolution'),
+            voice: formData.get('voice')
+        };
+        
+        fetch('/process_with_edited_text', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                // Start checking status
+                checkProcessingStatus();
+            } else {
+                alert(`Error: ${data.message}`);
+                resetForm();
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while processing your request.');
+            resetForm();
+        });
+    });
+
+    function checkProcessingStatus() {
+        const statusInterval = setInterval(() => {
+            fetch('/status')
+                .then(response => response.json())
+                .then(data => {
+                    const statusMessage = document.getElementById('status-message');
+                    const processingDiv = document.getElementById('processing');
+                    
+                    if (data.status === 'completed') {
+                        processingDiv.innerHTML = `
+                            <div class="status-indicator status-success" style="width: 100%; justify-content: center;">
+                                ✅ Video generated successfully!
+                            </div>
+                            <div style="margin-top: 1rem; text-align: center;">
+                                <a href="/download" class="btn btn-primary">View Downloads</a>
+                            </div>
+                        `;
+                        clearInterval(statusInterval);
+                    } else if (data.status === 'failed') {
+                        processingDiv.innerHTML = `
+                            <div class="status-indicator status-error" style="width: 100%; justify-content: center;">
+                                ❌ Processing failed
+                            </div>
+                        `;
+                        clearInterval(statusInterval);
+                        resetForm();
+                    } else if (data.status === 'processing') {
+                        if (statusMessage) {
+                            statusMessage.textContent = data.message;
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking status:', error);
+                });
+        }, 3000);
+    }
+
+    function resetForm() {
+        const generateBtn = document.getElementById('generate-btn');
+        generateBtn.disabled = false;
+        generateBtn.innerHTML = '🚀 Generate Video';
+    }
+</script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.progress-steps {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 2rem;
+}
+
+.step {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    opacity: 0.5;
+}
+
+.step.completed {
+    opacity: 1;
+    color: var(--success-600);
+}
+
+.step.active {
+    opacity: 1;
+    color: var(--primary-600);
+}
+
+.step-number {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    background: var(--surface-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.step.completed .step-number {
+    background: var(--success-500);
+    color: white;
+}
+
+.step.active .step-number {
+    background: var(--primary-500);
+    color: white;
+}
+
+.step-label {
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.page-content {
+    font-family: 'Consolas', 'Monaco', monospace;
+    line-height: 1.6;
+}
+
+.character-count {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.form-help {
+    display: flex;
+    align-items: center;
+    margin-top: 0.5rem;
+}
+
+.btn-sm {
+    padding: 0.25rem 0.75rem;
+    font-size: 0.875rem;
+}
+
+.btn-outline {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+}
+
+.btn-outline:hover {
+    background: var(--surface-secondary);
+    color: var(--text-primary);
+}
+</style>
+{% endblock %}

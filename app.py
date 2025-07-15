@@ -11,7 +11,7 @@ from werkzeug.utils import secure_filename
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
-from api.whisper_LLM_api import api
+from api.whisper_LLM_api import api, api_with_edited_script, api_generate_text_only
 from pyngrok import ngrok
 from dotenv import load_dotenv
 
@@ -318,6 +318,176 @@ def check_status():
             return jsonify({"status": "processing", "message": "Processing... Please wait"})
     except Exception as e:
         return jsonify({"status": "error", "message": f"Error checking status: {str(e)}"})
+
+# ✅ Generate Text from PDF (First Stage)
+@app.route("/generate_text", methods=["POST"])
+@login_required
+def generate_text():
+    user_folder = os.path.join(app.config["OUTPUT_FOLDER"], str(current_user.id))
+    os.makedirs(user_folder, exist_ok=True)
+    
+    try:
+        pdf_file = request.files.get("pdf")
+        video_file = request.files.get("video")
+        extra_prompt = request.form.get("extra_prompt")
+
+        if not pdf_file:
+            app.logger.warning("⚠️ No PDF file uploaded.")
+            return jsonify({"status": "error", "message": "⚠️ Please upload a PDF file."}), 400
+
+        # Save PDF file
+        pdf_path = os.path.join(user_folder, secure_filename(pdf_file.filename))
+        pdf_file.save(pdf_path)
+
+        # Save video file if provided
+        video_path = None
+        if video_file and video_file.filename != '':
+            video_path = os.path.join(user_folder, secure_filename(video_file.filename))
+            video_file.save(video_path)
+
+        # Generate text using the new API function
+        
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        try:
+            generated_pages = loop.run_until_complete(
+                api_generate_text_only(
+                    pdf_file_path=pdf_path,
+                    poppler_path=POPPLER_PATH,
+                    num_of_pages="all",
+                    extra_prompt=extra_prompt if extra_prompt else None,
+                    video_path=video_path
+                )
+            )
+            
+            # Store generated text in session for the edit page
+            session['generated_pages'] = generated_pages
+            session['pdf_path'] = pdf_path
+            session['video_path'] = video_path
+            session['extra_prompt'] = extra_prompt
+            
+            return jsonify({
+                'status': 'success',
+                'pages': generated_pages,
+                'message': f'Successfully generated text for {len(generated_pages)} pages'
+            })
+            
+        except Exception as e:
+            app.logger.error(f"Error generating text: {e}", exc_info=True)
+            return jsonify({'status': 'error', 'message': f'Error generating text: {str(e)}'})
+        
+        finally:
+            loop.close()
+        
+    except Exception as e:
+        app.logger.error(f"Error in /generate_text: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Server error: {e}"}), 500
+
+# ✅ Process Video with Edited Text (Second Stage)
+@app.route("/process_with_edited_text", methods=["POST"])
+@login_required
+def process_with_edited_text():
+    user_folder = os.path.join(app.config["OUTPUT_FOLDER"], str(current_user.id))
+    
+    try:
+        # Get edited pages from request
+        edited_pages = request.json.get('pages', [])
+        video_file = request.files.get("video") if request.files else None
+        resolution = request.form.get("resolution") if request.form else request.json.get("resolution")
+        TTS_model_type = request.form.get("TTS_model_type") if request.form else request.json.get("TTS_model_type")
+        voice = request.form.get("voice") if request.form else request.json.get("voice")
+        
+        # Get saved parameters
+        pdf_path = session.get('pdf_path')
+        generation_params = session.get('generation_params', {})
+        
+        if not pdf_path or not edited_pages:
+            return jsonify({"status": "error", "message": "Missing required data"}), 400
+        
+        # Handle video file if provided
+        video_path = None
+        if video_file and video_file.filename != "":
+            video_path = os.path.join(user_folder, secure_filename(video_file.filename))
+            video_file.save(video_path)
+        
+        # Save edited pages to a temporary file
+        edited_script_path = os.path.join(user_folder, "edited_script.txt")
+        with open(edited_script_path, 'w', encoding='utf-8') as f:
+            for i, page in enumerate(edited_pages):
+                f.write(f"## Page {i+1}\n{page}\n\n")
+        
+        # Start processing with edited content
+        processing_thread = threading.Thread(
+            target=run_processing_with_edited_text, 
+            args=(video_path, pdf_path, edited_script_path, resolution, user_folder, TTS_model_type, voice)
+        )
+        processing_thread.start()
+        
+        app.logger.info("Processing with edited text started successfully.")
+        return jsonify({"status": "success", "message": "Processing... Please wait"}), 200
+        
+    except Exception as e:
+        app.logger.error(f"Error in /process_with_edited_text: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Server error: {e}"}), 500
+
+def run_processing_with_edited_text(video_path, pdf_path, edited_script_path, resolution, user_folder, TTS_model_type, voice):
+    """Background processing task with edited text"""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    video_folder = os.path.join(user_folder, 'video')
+    os.makedirs(video_folder, exist_ok=True)
+    status_file = os.path.join(video_folder, "processing.txt")
+    
+    with open(status_file, "w") as f:
+        f.write("processing")
+    
+    try:
+        # Read edited script
+        with open(edited_script_path, 'r', encoding='utf-8') as f:
+            edited_script = f.read()
+        
+        # Process with edited script
+        loop.run_until_complete(api_with_edited_script(
+            video_path=video_path,
+            pdf_file_path=pdf_path,
+            edited_script=edited_script,
+            poppler_path=None,
+            output_audio_dir=os.path.join(user_folder, 'audio'),
+            output_video_dir=os.path.join(user_folder, 'video'),
+            output_text_path=os.path.join(user_folder, "text_output.txt"),
+            resolution=int(resolution),
+            tts_model=TTS_model_type,
+            voice=voice
+        ))
+        
+        # Clean up
+        if os.path.exists(status_file):
+            os.remove(status_file)
+        if os.path.exists(edited_script_path):
+            os.remove(edited_script_path)
+            
+        app.logger.info("✅ Video Processing with Edited Text Completed!")
+        
+    except Exception as e:
+        app.logger.error(f"❌ Error during processing with edited text: {e}", exc_info=True)
+        with open(status_file, "w") as f:
+            f.write("failed")
+
+# ✅ Text Editing Page
+@app.route('/edit_text')
+@login_required
+def edit_text():
+    """Display the text editing page"""
+    pages = request.args.get('pages')
+    if not pages:
+        flash('No generated text found. Please start from the upload page.', 'error')
+        return redirect(url_for('index'))
+    
+    return render_template('edit_text.html')
+
+# ✅ Poppler path configuration
+POPPLER_PATH = os.path.join(BASE_DIR, "poppler", "poppler-0.89.0", "bin")
 
 if __name__ == "__main__":
     public_url = ngrok.connect(5001)

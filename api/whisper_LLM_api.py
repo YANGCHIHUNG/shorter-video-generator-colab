@@ -277,6 +277,168 @@ async def api(
 
     logger.info("✅ Cleanup process completed!")
 
+async def api_with_edited_script(video_path, pdf_file_path, edited_script, poppler_path, output_audio_dir, output_video_dir, output_text_path, resolution, tts_model, voice):
+    """
+    API function to process video with pre-edited script content
+    """
+    logger.info("🎬 Starting video processing with edited script...")
+    
+    # Ensure directories exist
+    ensure_directories_exist(output_audio_dir, output_video_dir, os.path.dirname(output_text_path))
+    
+    # Save the edited script
+    with open(output_text_path, 'w', encoding='utf-8') as f:
+        f.write(edited_script)
+    
+    # Convert PDF to images
+    from utility.pdf import pdf_to_images
+    images = pdf_to_images(pdf_file_path, poppler_path)
+    
+    # Parse edited script into pages
+    pages = []
+    current_page = ""
+    
+    for line in edited_script.split('\n'):
+        if line.strip().startswith('## Page') or line.strip().startswith('# Page'):
+            if current_page.strip():
+                pages.append(current_page.strip())
+            current_page = ""
+        else:
+            current_page += line + '\n'
+    
+    if current_page.strip():
+        pages.append(current_page.strip())
+    
+    # Generate audio for each page
+    audio_files = []
+    for i, page_text in enumerate(pages):
+        if not page_text.strip():
+            continue
+            
+        audio_filename = f"page_{i+1}.wav"
+        
+        if tts_model == "edge":
+            from utility.api import edge_tts_example
+            audio_file = await edge_tts_example(page_text, output_audio_dir, audio_filename, voice)
+        else:
+            from utility.api import kokoro_tts_example
+            audio_file = await kokoro_tts_example(page_text, output_audio_dir, audio_filename)
+        
+        if audio_file:
+            audio_files.append(audio_file)
+    
+    # Create video with images and audio
+    if images and audio_files:
+        from moviepy.editor import ImageClip, AudioFileClip, concatenate_videoclips
+        
+        video_clips = []
+        for i, (image, audio_file) in enumerate(zip(images, audio_files)):
+            if os.path.exists(audio_file):
+                audio_clip = AudioFileClip(audio_file)
+                duration = audio_clip.duration
+                
+                # Resize image to target resolution
+                target_width, target_height = RESOLUTION_MAP.get(resolution, (854, 480))
+                
+                image_clip = ImageClip(image).set_duration(duration)
+                image_clip = image_clip.resize((target_width, target_height))
+                
+                # Add audio to video clip
+                video_clip = image_clip.set_audio(audio_clip)
+                video_clips.append(video_clip)
+        
+        if video_clips:
+            final_video = concatenate_videoclips(video_clips)
+            output_video_path = os.path.join(output_video_dir, f"output_video_{resolution}p.mp4")
+            
+            logger.info(f"📤 Exporting final video to: {output_video_path}")
+            final_video.write_videofile(output_video_path, fps=24, codec='libx264')
+            
+            # Clean up
+            final_video.close()
+            for clip in video_clips:
+                clip.close()
+    
+    logger.info("✅ Video processing with edited script completed!")
+
+async def api_generate_text_only(
+    pdf_file_path: str,
+    poppler_path: str,
+    num_of_pages="all",
+    extra_prompt: str = None,
+    video_path: str = None
+):
+    """
+    Generate text responses from PDF without creating audio or video.
+    Returns an array of text responses for each page.
+    """
+    logger.info("📝 Starting text generation process...")
+    
+    # Process video if provided
+    if video_path is None:
+        logger.info("No MP4 passed in. Go on processing without video.")
+        script = "No video for this file. Please use the passage only to generate."
+    else:
+        # Convert MP4 to MP3 and transcribe
+        logger.info(f"🎵 Converting MP4 to MP3: {video_path}")
+        try:
+            audio = convert_mp4_to_mp3(video_path)
+            script = transcribe_audio(audio, model_size="base")['text']
+        except Exception as e:
+            logger.error(f"❌ Error processing video: {e}", exc_info=True)
+            raise
+
+    # Add extra prompt if provided
+    if extra_prompt:
+        logger.info(f"📝 Adding extra prompt to script: {extra_prompt}")
+        script += f"\n\n this is the extra prompt instructed by the user: {extra_prompt}"
+
+    # Get API key
+    try:
+        keys = eval(os.getenv("api_key"))
+    except Exception as e:
+        logger.error(f"❌ Error loading API key: {e}", exc_info=True)
+        raise
+
+    logger.info(f"📄 Extracting text from PDF: {pdf_file_path}")
+
+    # Detect total number of pages
+    try:
+        if num_of_pages == "all":
+            total_pages = len(convert_from_path(
+                pdf_file_path, poppler_path=poppler_path, thread_count=THREAD_COUNT
+            ))
+            logger.info(f"📚 Detected total pages: {total_pages}")
+        else:
+            try:
+                total_pages = int(num_of_pages)
+                logger.info(f"📃 Selected Number of Pages: {num_of_pages}")
+            except Exception:
+                total_pages = len(convert_from_path(
+                    pdf_file_path, poppler_path=poppler_path, thread_count=THREAD_COUNT
+                ))
+                logger.info(f"📚 Detected total pages (fallback): {total_pages}")
+    except Exception as e:
+        logger.error(f"❌ Error reading PDF pages: {e}", exc_info=True)
+        raise
+
+    # Extract text from PDF
+    try:
+        text_array = pdf_to_text_array(pdf_file_path)
+    except Exception as e:
+        logger.error(f"❌ Error extracting text from PDF: {e}", exc_info=True)
+        raise
+
+    # Generate AI responses
+    logger.info(f"🤖 Generating AI responses for {total_pages} pages...")
+    try:
+        response_array = gemini_chat(text_array[:total_pages], script=script, keys=keys)
+        logger.info(f"✅ Successfully generated text for {len(response_array)} pages")
+        return response_array
+    except Exception as e:
+        logger.error(f"❌ Error during AI response generation: {e}", exc_info=True)
+        raise
+
 if __name__ == "__main__":
     asyncio.run(api(
         video_path="../video/video1.mp4",
