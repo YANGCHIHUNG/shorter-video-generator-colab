@@ -188,15 +188,40 @@ def gemini_chat(text_array=None, script=None, clients=None, keys=None, max_retri
                 break  # ✅ Successful request; exit retry loop
             except Exception as e:
                 error_message = str(e)
+                retries += 1
+                
+                # Handle different types of errors
                 if "RESOURCE_EXHAUSTED" in error_message:
-                    wait_time = 2 ** retries  # Exponential backoff
-                    print(f"Rate limit reached for current client. Switching client and retrying in {wait_time} seconds...")
+                    wait_time = min(2 ** retries, 60)  # Exponential backoff with max 60 seconds
+                    print(f"⚠️ Rate limit reached for current client. Switching client and retrying in {wait_time} seconds...")
                     time.sleep(wait_time)
-                    retries += 1
+                    client = next(client_cycle)  # 🔄 Rotate to the next client
+                elif "503" in error_message or "UNAVAILABLE" in error_message or "overloaded" in error_message:
+                    wait_time = min(5 * retries, 120)  # Longer wait for service unavailable
+                    print(f"⚠️ Service unavailable (503/overloaded). Retrying in {wait_time} seconds... (Attempt {retries}/{max_retries})")
+                    time.sleep(wait_time)
+                    client = next(client_cycle)  # 🔄 Rotate to the next client
+                elif "500" in error_message or "INTERNAL" in error_message:
+                    wait_time = min(3 * retries, 60)  # Wait for internal server errors
+                    print(f"⚠️ Internal server error (500). Retrying in {wait_time} seconds... (Attempt {retries}/{max_retries})")
+                    time.sleep(wait_time)
+                    client = next(client_cycle)  # 🔄 Rotate to the next client
+                elif "429" in error_message or "QUOTA_EXCEEDED" in error_message:
+                    wait_time = min(10 * retries, 300)  # Longer wait for quota exceeded
+                    print(f"⚠️ API quota exceeded. Retrying in {wait_time} seconds... (Attempt {retries}/{max_retries})")
+                    time.sleep(wait_time)
                     client = next(client_cycle)  # 🔄 Rotate to the next client
                 else:
-                    raise e  # ⚠️ Other errors should not be retried (e.g., invalid request)
+                    # For other errors, try a few times with shorter wait
+                    if retries <= 3:
+                        wait_time = min(2 * retries, 10)
+                        print(f"⚠️ Error: {error_message}. Retrying in {wait_time} seconds... (Attempt {retries}/{max_retries})")
+                        time.sleep(wait_time)
+                        client = next(client_cycle)  # 🔄 Rotate to the next client
+                    else:
+                        print(f"❌ Persistent error after {retries} attempts: {error_message}")
+                        raise e  # ⚠️ Other persistent errors should not be retried indefinitely
         else:
-            raise Exception("Max retries reached. Aborting.")
+            raise Exception(f"❌ Max retries ({max_retries}) reached for page {idx + 1}. Last error: {error_message}")
     
     return response_array_of_text

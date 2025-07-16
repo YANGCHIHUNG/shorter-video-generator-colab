@@ -303,34 +303,7 @@
         
         const formData = new FormData(this);
 
-        fetch("/generate_text", {
-            method: "POST",
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === "success") {
-                // Redirect to edit page with generated text
-                const pagesParam = encodeURIComponent(JSON.stringify(data.pages));
-                window.location.href = `/edit_text?pages=${pagesParam}`;
-            } else {
-                processingDiv.innerHTML = `
-                    <div class="status-indicator status-error" style="width: 100%; justify-content: center;">
-                        ❌ ${data.message}
-                    </div>
-                `;
-            }
-        })
-        .catch(error => {
-            processingDiv.innerHTML = `
-                <div class="status-indicator status-error" style="width: 100%; justify-content: center;">
-                    ⚠️ An error occurred: ${error}
-                </div>
-            `;
-        })
-        .finally(() => {
-            hideLoading(submitBtn, originalText);
-        });
+        generateTextWithRetry(formData, processingDiv, submitBtn, originalText);
     });
 
     // Function to check processing status periodically
@@ -372,6 +345,77 @@
                     console.error("Error checking status:", error);
                 });
         }, 3000); // Check every 3 seconds
+    }
+
+    // Enhanced text generation with retry mechanism
+    function generateTextWithRetry(formData, processingDiv, submitBtn, originalText, attempt = 1, maxAttempts = 3) {
+        const retryDelay = Math.min(1000 * Math.pow(2, attempt - 1), 30000); // Exponential backoff, max 30s
+        
+        fetch("/generate_text", {
+            method: "POST",
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === "success") {
+                // Redirect to edit page with generated text
+                const pagesParam = encodeURIComponent(JSON.stringify(data.pages));
+                window.location.href = `/edit_text?pages=${pagesParam}`;
+            } else {
+                // Check if it's a retryable error
+                const isRetryable = data.message.includes("服務過載") || 
+                                  data.message.includes("暫時無法使用") || 
+                                  data.message.includes("請稍後再試") ||
+                                  data.message.includes("503");
+                
+                if (isRetryable && attempt < maxAttempts) {
+                    // Show retry message
+                    processingDiv.innerHTML = `
+                        <div class="status-indicator status-warning" style="width: 100%; justify-content: center;">
+                            🔄 ${data.message}<br>
+                            <small>正在重試 (${attempt}/${maxAttempts-1})，請稍候 ${Math.round(retryDelay/1000)} 秒...</small>
+                        </div>
+                    `;
+                    
+                    // Retry after delay
+                    setTimeout(() => {
+                        generateTextWithRetry(formData, processingDiv, submitBtn, originalText, attempt + 1, maxAttempts);
+                    }, retryDelay);
+                } else {
+                    // Show final error
+                    processingDiv.innerHTML = `
+                        <div class="status-indicator status-error" style="width: 100%; justify-content: center;">
+                            ❌ ${data.message}
+                            ${data.suggestion ? `<br><small style="color: var(--text-secondary);">${data.suggestion}</small>` : ''}
+                        </div>
+                    `;
+                    hideLoading(submitBtn, originalText);
+                }
+            }
+        })
+        .catch(error => {
+            if (attempt < maxAttempts) {
+                // Show retry message for network errors
+                processingDiv.innerHTML = `
+                    <div class="status-indicator status-warning" style="width: 100%; justify-content: center;">
+                        🔄 網路連接問題，正在重試 (${attempt}/${maxAttempts-1})...<br>
+                        <small>請稍候 ${Math.round(retryDelay/1000)} 秒...</small>
+                    </div>
+                `;
+                
+                setTimeout(() => {
+                    generateTextWithRetry(formData, processingDiv, submitBtn, originalText, attempt + 1, maxAttempts);
+                }, retryDelay);
+            } else {
+                processingDiv.innerHTML = `
+                    <div class="status-indicator status-error" style="width: 100%; justify-content: center;">
+                        ⚠️ 連接失敗: ${error}<br>
+                        <small style="color: var(--text-secondary);">請檢查網路連接並重新嘗試</small>
+                    </div>
+                `;
+                hideLoading(submitBtn, originalText);
+            }
+        });
     }
 
     // Add drag and drop functionality

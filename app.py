@@ -383,8 +383,35 @@ def generate_text():
             })
             
         except Exception as e:
+            error_message = str(e)
             app.logger.error(f"Error generating text: {e}", exc_info=True)
-            return jsonify({'status': 'error', 'message': f'Error generating text: {str(e)}'})
+            
+            # Handle different types of errors with user-friendly messages
+            if "503" in error_message or "UNAVAILABLE" in error_message or "overloaded" in error_message:
+                return jsonify({
+                    'status': 'error', 
+                    'message': '🚫 AI 服務目前過載，請稍後再試。這是暫時性問題，通常幾分鐘後就會恢復正常。'
+                })
+            elif "RESOURCE_EXHAUSTED" in error_message or "429" in error_message:
+                return jsonify({
+                    'status': 'error', 
+                    'message': '⏰ API 配額已用完，請稍後再試或檢查 API 金鑰配置。'
+                })
+            elif "500" in error_message or "INTERNAL" in error_message:
+                return jsonify({
+                    'status': 'error', 
+                    'message': '🔧 AI 服務內部錯誤，請稍後再試。'
+                })
+            elif "401" in error_message or "UNAUTHORIZED" in error_message:
+                return jsonify({
+                    'status': 'error', 
+                    'message': '🔑 API 金鑰無效或已過期，請檢查配置。'
+                })
+            else:
+                return jsonify({
+                    'status': 'error', 
+                    'message': f'❌ 文本生成失敗：{error_message}'
+                })
         
         finally:
             loop.close()
@@ -582,6 +609,11 @@ def set_session_data(key, value):
         save_session_backup(current_user.id, backup_data)
 
 if __name__ == "__main__":
-    public_url = ngrok.connect(5001)
-    print(f" * ngrok tunnel URL: 👉👉👉 {public_url} 👈👈👈 Click here!")
+    try:
+        public_url = ngrok.connect(5001)
+        print(f" * ngrok tunnel URL: 👉👉👉 {public_url} 👈👈👈 Click here!")
+    except Exception as e:
+        print(f" * ngrok failed: {e}")
+        print(" * Running locally without ngrok")
+    
     app.run(host="0.0.0.0", port=5001, debug=False, threaded=True)
