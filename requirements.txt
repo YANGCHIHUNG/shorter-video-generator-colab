@@ -1,40 +1,41 @@
 # Flask and backend development
-Flask
-flask-wtf
-Werkzeug
-flask-login
-flask-sqlalchemy
-flask-bcrypt
+Flask>=2.0.0,<4.0.0
+flask-wtf>=1.0.0
+Werkzeug>=2.0.0,<4.0.0
+flask-login>=0.6.0
+flask-sqlalchemy>=3.0.0
+flask-bcrypt>=1.0.0
 
-# Google Gemini API
-google-genai
+# Google Gemini API (correct package name)
+google-generativeai>=0.3.0
 
 # Whisper and speech processing
-edge-tts==7.0.0
+edge-tts>=6.1.0
 
 # Video and audio processing
-moviepy==1.0.3
-ffmpeg-python==0.2.0
-pydub==0.25.1
+moviepy>=1.0.3
+ffmpeg-python>=0.2.0
+pydub>=0.25.1
 
 # PDF processing
-pdf2image==1.16.0
-Pillow>=10.0.0,<12.0.0
+pdf2image>=1.16.0
+Pillow>=8.0.0,<11.0.0
+
+# Compatibility with Colab's numpy version
+numpy>=1.21.0,<2.4.0
 
 # kokoro and misaki (with Chinese support)
 kokoro==0.8.4
 misaki[zh]==0.8.4
 
-# OpenAI Whisper (latest features)
-git+https://github.com/openai/whisper.git
+# OpenAI Whisper (use PyPI version for stability)
+openai-whisper>=20231117
 
 # System tools
 tqdm
-nest_asyncio==1.5.6
-# requests, python-dotenv, PyPDF2, ipython (no version specified)
-SoundFile==0.12.1
-
+nest_asyncio>=1.5.6
+SoundFile>=0.12.1
 python-dotenv
-PyPDF2
+PyPDF2>=2.0.0
 ipython
 pyngrok
