@@ -6,7 +6,7 @@ By taking advantage of this system, you can
 - Shorten the existing video for clarity.
 # Installation
 
-### Step 1: Clone the Repository
+### Step 1: Clone the Repository 
 
 Clone the project repository from GitHub:
 
