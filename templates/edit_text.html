@@ -130,8 +130,16 @@
                 window.location.href = '/';
             }
         } else {
-            alert('No generated text found. Please start from the upload page.');
-            window.location.href = '/';
+            // Try to get pages from backend
+            const backendPages = {{ pages_json|default('null')|safe }};
+            if (backendPages && backendPages.length > 0) {
+                currentPages = backendPages;
+                originalPages = [...currentPages];
+                renderPages();
+            } else {
+                alert('No generated text found. Please start from the upload page.');
+                window.location.href = '/';
+            }
         }
     });
 

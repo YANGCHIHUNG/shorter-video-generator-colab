@@ -3,4 +3,23 @@ video/
 audio/
 output/*
 *.pyc
+
+# Virtual environments
 myenv/
+new_venv/
+venv/
+env/
+ENV/
+.venv/
+.env/
+*.virtualenv
+pyvenv.cfg
+
+# Python virtual environment patterns
+**/venv/
+**/env/
+**/ENV/
+**/.venv/
+**/.env/
+**/myenv/
+**/new_venv/

@@ -538,18 +538,38 @@ def run_processing_with_edited_text(video_path, pdf_path, edited_pages, resoluti
 @login_required
 def edit_text():
     """Display the text editing page"""
-    # Check session data (with backup fallback)
+    # Check if pages data is in URL parameters (from frontend redirect)
+    pages_param = request.args.get('pages')
+    
+    # Try to get data from URL parameters first, then session
+    generated_pages = []
+    if pages_param:
+        try:
+            generated_pages = json.loads(pages_param)
+            app.logger.info(f"Got pages data from URL parameter: {len(generated_pages)} pages")
+        except (json.JSONDecodeError, TypeError) as e:
+            app.logger.error(f"Error parsing pages parameter: {e}")
+    
+    # If no data from URL, try session data (with backup fallback)
+    if not generated_pages:
+        generated_pages = get_session_data('generated_pages', [])
+        app.logger.info(f"Got pages data from session: {len(generated_pages)} pages")
+    
+    # Get other session data
     pdf_path = get_session_data('pdf_path')
-    generated_pages = get_session_data('generated_pages', [])
     
     app.logger.info(f"Edit text page - Session data: PDF={pdf_path}, Pages={len(generated_pages)}")
     app.logger.info(f"Edit text page - Session keys: {list(session.keys())}")
     
-    if not pdf_path or not generated_pages:
+    if not generated_pages:
         flash('No generated text found. Please start from the upload page.', 'error')
         return redirect(url_for('index'))
     
-    return render_template('edit_text.html')
+    # Store pages data in session for later use
+    if pages_param:
+        set_session_data('generated_pages', generated_pages)
+    
+    return render_template('edit_text.html', pages=generated_pages)
 
 # ✅ Session backup storage (in case Flask session fails)
 def save_session_backup(user_id, data):
