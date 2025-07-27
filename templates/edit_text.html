@@ -10,6 +10,20 @@
         <p class="subtitle">
             Review and edit the AI-generated text for each page before creating your video
         </p>
+        <div style="margin-top: 1rem; padding: 0.75rem 1.5rem; background: var(--primary-50); border: 1px solid var(--primary-200); border-radius: 8px; color: var(--primary-700); font-size: 0.9rem;">
+            📝 已套用第一階段的視頻設定 (解析度: {{ resolution|default('480') }}p, 語音: 
+            {% if voice == 'zh-CN-XiaoxiaoNeural' %}Xiaoxiao (女性)
+            {% elif voice == 'zh-CN-YunxiNeural' %}Yunxi (男性)
+            {% elif voice == 'zh-CN-XiaoyiNeural' %}Xiaoyi (女性)
+            {% elif voice == 'zh-TW-HsiaoChenNeural' %}小陳 (女性)
+            {% elif voice == 'zh-TW-YunJheNeural' %}雲哲 (男性)
+            {% elif voice == 'en-US-JennyNeural' %}Jenny (Female)
+            {% elif voice == 'en-US-AriaNeural' %}Aria (Female)
+            {% elif voice == 'en-US-AndrewNeural' %}Andrew (Male)
+            {% elif voice == 'en-US-BrianNeural' %}Brian (Male)
+            {% elif voice == 'en-US-EmmaNeural' %}Emma (Female)
+            {% else %}{{ voice|default('Yunxi (男性)') }}{% endif %})
+        </div>
     </div>
 
     <!-- Progress Steps -->
@@ -34,52 +48,10 @@
             <!-- Pages will be dynamically loaded here -->
         </div>
 
-        <!-- Video Settings -->
-        <div class="card" style="margin-top: 2rem;">
-            <div class="card-header">
-                <h3>🎬 Video Settings</h3>
-                <p style="color: var(--text-secondary); margin: 0.5rem 0 0 0; font-size: 0.9rem;">
-                    已使用第一階段的設定，您可以在此調整
-                </p>
-            </div>
-            <div class="card-body">
-                <div class="grid grid-cols-2">
-                    <div class="form-group">
-                        <label class="form-label">📺 Resolution</label>
-                        <select name="resolution" class="form-select">
-                            <option value="144" {% if resolution == 144 %}selected{% endif %}>144p</option>
-                            <option value="240" {% if resolution == 240 %}selected{% endif %}>240p</option>
-                            <option value="360" {% if resolution == 360 %}selected{% endif %}>360p</option>
-                            <option value="480" {% if resolution == 480 %}selected{% endif %}>480p (Recommended)</option>
-                            <option value="720" {% if resolution == 720 %}selected{% endif %}>720p</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">🎙️ Voice</label>
-                        <select name="voice" id="voice-select" class="form-select">
-                            <optgroup label="🇨🇳 Chinese (中文)">
-                                <option value="zh-CN-XiaoxiaoNeural" {% if voice == 'zh-CN-XiaoxiaoNeural' %}selected{% endif %}>Xiaoxiao (Female) - Warm</option>
-                                <option value="zh-CN-YunxiNeural" {% if voice == 'zh-CN-YunxiNeural' %}selected{% endif %}>Yunxi (Male) - Lively</option>
-                                <option value="zh-CN-XiaoyiNeural" {% if voice == 'zh-CN-XiaoyiNeural' %}selected{% endif %}>Xiaoyi (Female) - Lively</option>
-                                <option value="zh-TW-HsiaoChenNeural" {% if voice == 'zh-TW-HsiaoChenNeural' %}selected{% endif %}>HsiaoChen (Female) - Traditional</option>
-                                <option value="zh-TW-YunJheNeural" {% if voice == 'zh-TW-YunJheNeural' %}selected{% endif %}>YunJhe (Male) - Traditional</option>
-                            </optgroup>
-                            <optgroup label="🇺🇸 English (US)">
-                                <option value="en-US-JennyNeural" {% if voice == 'en-US-JennyNeural' %}selected{% endif %}>Jenny (Female) - Friendly</option>
-                                <option value="en-US-AriaNeural" {% if voice == 'en-US-AriaNeural' %}selected{% endif %}>Aria (Female) - Confident</option>
-                                <option value="en-US-AndrewNeural" {% if voice == 'en-US-AndrewNeural' %}selected{% endif %}>Andrew (Male) - Warm</option>
-                                <option value="en-US-BrianNeural" {% if voice == 'en-US-BrianNeural' %}selected{% endif %}>Brian (Male) - Casual</option>
-                                <option value="en-US-EmmaNeural" {% if voice == 'en-US-EmmaNeural' %}selected{% endif %}>Emma (Female) - Cheerful</option>
-                            </optgroup>
-                        </select>
-                    </div>
-                </div>
-                
-                <!-- Hidden input for default TTS model -->
-                <input type="hidden" name="TTS_model_type" value="edge">
-            </div>
-        </div>
+        <!-- Hidden inputs for video settings (using values from first stage) -->
+        <input type="hidden" name="resolution" value="{{ resolution|default('480') }}">
+        <input type="hidden" name="voice" value="{{ voice|default('zh-CN-YunxiNeural') }}">
+        <input type="hidden" name="TTS_model_type" value="edge">
 
         <!-- Action Buttons -->
         <div style="display: flex; gap: 1rem; justify-content: space-between; margin-top: 2rem;">
