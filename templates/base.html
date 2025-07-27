@@ -26,11 +26,9 @@
                 <a href="{{ url_for('index') }}" class="nav-link {% if request.endpoint == 'index' %}active{% endif %}" role="menuitem">
                     🏠 Home
                 </a>
-                {% if current_user.is_authenticated %}
-                    <a href="{{ url_for('download') }}" class="nav-link {% if request.endpoint == 'download' %}active{% endif %}" role="menuitem">
-                        📥 Downloads
-                    </a>
-                {% endif %}
+                <a href="{{ url_for('download') }}" class="nav-link {% if request.endpoint == 'download' %}active{% endif %}" role="menuitem">
+                    📥 Downloads
+                </a>
                 <a href="{{ url_for('documentation') }}" class="nav-link {% if request.endpoint == 'documentation' %}active{% endif %}" role="menuitem">
                     📚 Docs
                 </a>
@@ -41,16 +39,6 @@
                         <span class="theme-label">Theme</span>
                     </button>
                 </div>
-                
-                {% if current_user.is_authenticated %}
-                    <a href="{{ url_for('logout') }}" class="nav-link btn btn-secondary" role="menuitem">
-                        🚪 Logout
-                    </a>
-                {% else %}
-                    <a href="{{ url_for('login') }}" class="nav-link btn btn-primary" role="menuitem">
-                        🔐 Login
-                    </a>
-                {% endif %}
             </div>
         </div>
     </nav>

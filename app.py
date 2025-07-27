@@ -8,9 +8,6 @@ import secrets
 import sys
 import warnings
 from werkzeug.utils import secure_filename
-from flask_sqlalchemy import SQLAlchemy
-from flask_bcrypt import Bcrypt
-from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from api.whisper_LLM_api import api, api_with_edited_script, api_generate_text_only
 from pyngrok import ngrok
 from dotenv import load_dotenv
@@ -46,33 +43,12 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app.config["UPLOAD_FOLDER"] = os.path.join(BASE_DIR, "uploads")
 app.config["OUTPUT_FOLDER"] = os.path.join(BASE_DIR, "output")
 app.config["ALLOWED_EXTENSIONS"] = {"mp4", "pdf"}
-app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{os.path.join(BASE_DIR, 'instance', 'users.db')}"
 
 system_os = platform.system()
-db = SQLAlchemy(app)
-bcrypt = Bcrypt(app)
-login_manager = LoginManager()
-login_manager.init_app(app)
-login_manager.login_view = "login"
-
-# ✅ Admin Credentials
-admin_account = os.getenv("admin_account")
-admin_password = os.getenv("admin_password")
 
 # ✅ Ensure Upload & Output Folders Exist
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 os.makedirs(app.config["OUTPUT_FOLDER"], exist_ok=True)
-os.makedirs(os.path.join(BASE_DIR, "instance"), exist_ok=True)
-
-# ✅ User Model
-class User(UserMixin, db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(150), unique=True, nullable=False)
-    password = db.Column(db.String(150), nullable=False)
-
-@login_manager.user_loader
-def load_user(user_id):
-    return User.query.get(int(user_id))
 
 # ✅ Check Allowed File Types
 def allowed_file(filename):
@@ -115,65 +91,10 @@ def run_processing(video_path, pdf_path, num_of_pages, resolution, user_folder, 
 def index():
     return render_template("index.html")
 
-# ✅ Signup Route
-@app.route("/signup", methods=["GET", "POST"])
-def signup():
-    if request.method == "POST":
-        email = request.form["email"]
-        password = bcrypt.generate_password_hash(request.form["password"]).decode("utf-8")
-        if User.query.filter_by(email=email).first():
-            flash("⚠️ Email already registered!", "error")
-            return redirect(url_for("signup"))
-        new_user = User(email=email, password=password)
-        db.session.add(new_user)
-        db.session.commit()
-        flash("✅ Account created! Please log in.", "success")
-        return redirect(url_for("login"))
-    return render_template("signup.html")
-
-# ✅ Login Route
-@app.route("/login", methods=["GET", "POST"])
-def login():
-    if request.method == "POST":
-        email = request.form["email"]
-        password = request.form["password"]
-        # ✅ Admin Login Check
-        if email == admin_account and password == admin_password:
-            user = User.query.filter_by(email=admin_account).first()
-            if not user:
-                admin_hashed = bcrypt.generate_password_hash(admin_password).decode("utf-8")
-                user = User(email=admin_account, password=admin_hashed)
-                db.session.add(user)
-                db.session.commit()
-            login_user(user)
-            token = secrets.token_hex(16)
-            session["admin_token"] = token
-            flash("✅ Admin logged in successfully!", "success")
-            return redirect(url_for("admin_dashboard", token=token))
-        # ✅ Normal User Login
-        user = User.query.filter_by(email=email).first()
-        if user and bcrypt.check_password_hash(user.password, password):
-            login_user(user)
-            flash("✅ Logged in successfully!", "success")
-            return redirect(url_for("index"))
-        else:
-            flash("❌ Invalid email or password.", "error")
-    return render_template("login.html")
-
-# ✅ Logout Route
-@app.route("/logout")
-@login_required
-def logout():
-    session.pop("admin_token", None)
-    logout_user()
-    flash("🔓 Logged out successfully.", "success")
-    return redirect(url_for("index"))
-
 # ✅ Process Video Route
 @app.route("/process", methods=["POST"])
-@login_required
 def process_video():
-    user_folder = os.path.join(app.config["OUTPUT_FOLDER"], str(current_user.id))
+    user_folder = os.path.join(app.config["OUTPUT_FOLDER"], "default_user")
     os.makedirs(user_folder, exist_ok=True)
     try:
         video_file = request.files.get("video")
@@ -210,11 +131,10 @@ def process_video():
         app.logger.error(f"Error in /process: {e}", exc_info=True)
         return jsonify({"status": "error", "message": f"Server error: {e}"}), 500
 
-# ✅ Download Page (User Restricted)
+# ✅ Download Page
 @app.route("/download")
-@login_required
 def download():
-    user_folder = os.path.join(app.config["OUTPUT_FOLDER"], str(current_user.id), 'video')
+    user_folder = os.path.join(app.config["OUTPUT_FOLDER"], "default_user", 'video')
     processing_file = os.path.join(user_folder, "processing.txt")
     is_processing = os.path.exists(processing_file)
     files = []
@@ -224,9 +144,8 @@ def download():
 
 # ✅ Secure File Download
 @app.route("/download/<filename>")
-@login_required
 def download_file(filename):
-    user_folder = os.path.join(app.config["OUTPUT_FOLDER"], str(current_user.id), 'video')
+    user_folder = os.path.join(app.config["OUTPUT_FOLDER"], "default_user", 'video')
     if not filename:
         flash("⚠️ Invalid file request!", "error")
         return redirect(url_for("download"))
@@ -240,12 +159,11 @@ def download_file(filename):
         flash("⚠️ File not found!", "error")
         return redirect(url_for("download"))
 
-# ✅ Delete File Endpoint (User Restricted)
+# ✅ Delete File Endpoint
 @app.route("/delete/<filename>", methods=["DELETE"])
-@login_required
 def delete_file(filename):
     try:
-        user_folder = os.path.join(app.config["OUTPUT_FOLDER"], str(current_user.id), 'video')
+        user_folder = os.path.join(app.config["OUTPUT_FOLDER"], "default_user", 'video')
         file_path = os.path.join(user_folder, secure_filename(filename))
         if os.path.exists(file_path):
             os.remove(file_path)
@@ -258,48 +176,15 @@ def delete_file(filename):
         app.logger.error(f"Error deleting file: {e}", exc_info=True)
         return jsonify({"status": "error", "message": f"Error deleting file: {str(e)}"}), 500
 
-# ✅ Admin Dashboard: List All Users with Temporary Token
-@app.route("/admin/<token>")
-@login_required
-def admin_dashboard(token):
-    if current_user.email != admin_account or session.get("admin_token") != token:
-        flash("⚠️ Unauthorized access!", "error")
-        return redirect(url_for("index"))
-    users = User.query.all()
-    return render_template("admin_dashboard.html", users=users, token=token, admin_account=admin_account)
-
-# ✅ Admin Delete User Endpoint with Temporary Token
-@app.route("/admin/<token>/delete_user/<int:user_id>", methods=["POST"])
-@login_required
-def admin_delete_user(token, user_id):
-    if current_user.email != admin_account or session.get("admin_token") != token:
-        flash("⚠️ Unauthorized action!", "error")
-        return redirect(url_for("index"))
-    user = User.query.get(user_id)
-    if user:
-        user_folder = os.path.join(app.config["OUTPUT_FOLDER"], str(user.id))
-        if os.path.exists(user_folder):
-            shutil.rmtree(user_folder)
-        db.session.delete(user)
-        db.session.commit()
-        flash("✅ User deleted successfully!", "success")
-    else:
-        flash("⚠️ User not found!", "error")
-    return redirect(url_for("admin_dashboard", token=token))
-
-# ✅ Initialize Database
-with app.app_context():
-    db.create_all()
-
+# ✅ Documentation Route
 @app.route("/documentation")
 def documentation():
     return render_template("documentation.html")
 
 # ✅ Check Processing Status Endpoint
 @app.route("/status")
-@login_required
 def check_status():
-    user_folder = os.path.join(app.config["OUTPUT_FOLDER"], str(current_user.id), 'video')
+    user_folder = os.path.join(app.config["OUTPUT_FOLDER"], "default_user", 'video')
     processing_file = os.path.join(user_folder, "processing.txt")
     
     if not os.path.exists(processing_file):
@@ -326,9 +211,8 @@ def check_status():
 
 # ✅ Generate Text from PDF (First Stage)
 @app.route("/generate_text", methods=["POST"])
-@login_required
 def generate_text():
-    user_folder = os.path.join(app.config["OUTPUT_FOLDER"], str(current_user.id))
+    user_folder = os.path.join(app.config["OUTPUT_FOLDER"], "default_user")
     os.makedirs(user_folder, exist_ok=True)
     
     try:
@@ -422,9 +306,8 @@ def generate_text():
 
 # ✅ Process Video with Edited Text (Second Stage)
 @app.route("/process_with_edited_text", methods=["POST"])
-@login_required
 def process_with_edited_text():
-    user_folder = os.path.join(app.config["OUTPUT_FOLDER"], str(current_user.id))
+    user_folder = os.path.join(app.config["OUTPUT_FOLDER"], "default_user")
     
     try:
         # Get data from JSON request
@@ -535,7 +418,6 @@ def run_processing_with_edited_text(video_path, pdf_path, edited_pages, resoluti
 
 # ✅ Text Editing Page
 @app.route('/edit_text')
-@login_required
 def edit_text():
     """Display the text editing page"""
     # Check if pages data is in URL parameters (from frontend redirect)
@@ -571,10 +453,10 @@ def edit_text():
     
     return render_template('edit_text.html', pages=generated_pages)
 
-# ✅ Session backup storage (in case Flask session fails)
-def save_session_backup(user_id, data):
+# ✅ Session backup storage (simplified for single user)
+def save_session_backup(data):
     """Save session data to a backup file"""
-    backup_dir = os.path.join(app.config["OUTPUT_FOLDER"], str(user_id))
+    backup_dir = os.path.join(app.config["OUTPUT_FOLDER"], "default_user")
     os.makedirs(backup_dir, exist_ok=True)
     backup_file = os.path.join(backup_dir, "session_backup.json")
     
@@ -585,9 +467,9 @@ def save_session_backup(user_id, data):
     except Exception as e:
         app.logger.error(f"Failed to save session backup: {e}")
 
-def load_session_backup(user_id):
+def load_session_backup():
     """Load session data from backup file"""
-    backup_dir = os.path.join(app.config["OUTPUT_FOLDER"], str(user_id))
+    backup_dir = os.path.join(app.config["OUTPUT_FOLDER"], "default_user")
     backup_file = os.path.join(backup_dir, "session_backup.json")
     
     if not os.path.exists(backup_file):
@@ -607,9 +489,9 @@ def get_session_data(key, default=None):
     # Try Flask session first
     value = session.get(key, default)
     
-    # If not found and we have a current user, try backup
-    if value is None and current_user.is_authenticated:
-        backup_data = load_session_backup(current_user.id)
+    # If not found, try backup
+    if value is None:
+        backup_data = load_session_backup()
         value = backup_data.get(key, default)
         
         # If found in backup, restore to session
@@ -622,11 +504,10 @@ def set_session_data(key, value):
     """Set session data with backup"""
     session[key] = value
     
-    # Also save to backup if user is authenticated
-    if current_user.is_authenticated:
-        backup_data = load_session_backup(current_user.id)
-        backup_data[key] = value
-        save_session_backup(current_user.id, backup_data)
+    # Also save to backup
+    backup_data = load_session_backup()
+    backup_data[key] = value
+    save_session_backup(backup_data)
 
 if __name__ == "__main__":
     try:

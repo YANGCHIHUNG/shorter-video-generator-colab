@@ -11,9 +11,8 @@
     </p>
 </div>
 
-{% if current_user.is_authenticated %}
-    <!-- Upload Section -->
-    <div class="card" style="max-width: 700px; margin: 0 auto 4rem;">
+<!-- Upload Section -->
+<div class="card" style="max-width: 700px; margin: 0 auto 4rem;">
         <div class="card-header">
             <h2 style="margin: 0;">📤 Upload Your Files</h2>
             <p style="color: var(--text-secondary); margin: 0.5rem 0 0 0;">
@@ -180,59 +179,6 @@
         </div>
     </div>
 
-{% else %}
-    <!-- Not Logged In -->
-    <div class="card" style="max-width: 500px; margin: 0 auto;">
-        <div class="card-body" style="text-align: center; padding: 3rem 2rem;">
-            <div style="font-size: 4rem; margin-bottom: 1.5rem;">🔐</div>
-            <h2>Welcome to Video Generator</h2>
-            <p style="color: var(--text-secondary); margin-bottom: 2rem; line-height: 1.6;">
-                Please log in to access the AI-powered video generator and start creating amazing content from your videos and PDFs.
-            </p>
-            <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
-                <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg">
-                    🚀 Get Started
-                </a>
-                <a href="{{ url_for('signup') }}" class="btn btn-secondary">
-                    ✨ Create Account
-                </a>
-            </div>
-        </div>
-    </div>
-
-    <!-- Features Preview -->
-    <div class="grid grid-cols-3" style="max-width: 900px; margin: 3rem auto 0;">
-        <div class="card">
-            <div class="card-body" style="text-align: center;">
-                <div style="font-size: 2.5rem; margin-bottom: 1rem;">🎬</div>
-                <h3>Video Processing</h3>
-                <p style="color: var(--text-secondary); margin: 0; font-size: 0.9rem;">
-                    Convert and enhance your video content with AI
-                </p>
-            </div>
-        </div>
-
-        <div class="card">
-            <div class="card-body" style="text-align: center;">
-                <div style="font-size: 2.5rem; margin-bottom: 1rem;">📄</div>
-                <h3>PDF Integration</h3>
-                <p style="color: var(--text-secondary); margin: 0; font-size: 0.9rem;">
-                    Seamlessly combine PDF content with video
-                </p>
-            </div>
-        </div>
-
-        <div class="card">
-            <div class="card-body" style="text-align: center;">
-                <div style="font-size: 2.5rem; margin-bottom: 1rem;">🎤</div>
-                <h3>Text-to-Speech</h3>
-                <p style="color: var(--text-secondary); margin: 0; font-size: 0.9rem;">
-                    Multiple TTS engines for natural voice synthesis
-                </p>
-            </div>
-        </div>
-    </div>
-{% endif %}
 {% endblock %}
 
 {% block extra_js %}
