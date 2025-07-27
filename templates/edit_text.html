@@ -10,20 +10,6 @@
         <p class="subtitle">
             Review and edit the AI-generated text for each page before creating your video
         </p>
-        <div style="margin-top: 1rem; padding: 0.75rem 1.5rem; background: var(--primary-50); border: 1px solid var(--primary-200); border-radius: 8px; color: var(--primary-700); font-size: 0.9rem;">
-            📝 已套用第一階段的視頻設定 (解析度: {{ resolution|default('480') }}p, 語音: 
-            {% if voice == 'zh-CN-XiaoxiaoNeural' %}Xiaoxiao (女性)
-            {% elif voice == 'zh-CN-YunxiNeural' %}Yunxi (男性)
-            {% elif voice == 'zh-CN-XiaoyiNeural' %}Xiaoyi (女性)
-            {% elif voice == 'zh-TW-HsiaoChenNeural' %}小陳 (女性)
-            {% elif voice == 'zh-TW-YunJheNeural' %}雲哲 (男性)
-            {% elif voice == 'en-US-JennyNeural' %}Jenny (Female)
-            {% elif voice == 'en-US-AriaNeural' %}Aria (Female)
-            {% elif voice == 'en-US-AndrewNeural' %}Andrew (Male)
-            {% elif voice == 'en-US-BrianNeural' %}Brian (Male)
-            {% elif voice == 'en-US-EmmaNeural' %}Emma (Female)
-            {% else %}{{ voice|default('Yunxi (男性)') }}{% endif %})
-        </div>
     </div>
 
     <!-- Progress Steps -->
