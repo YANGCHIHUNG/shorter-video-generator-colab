@@ -9,7 +9,11 @@ import sys
 import warnings
 from werkzeug.utils import secure_filename
 from api.whisper_LLM_api import api, api_with_edited_script, api_generate_text_only
-from pyngrok import ngrok
+from py        # Convert resolution to int
+        try:
+            resolution = int(resolution)
+        except (ValueError, TypeError):
+            resolution = 1080 import ngrok
 from dotenv import load_dotenv
 import json
 import tempfile
@@ -223,7 +227,7 @@ def generate_text():
         # Get video generation parameters from first stage
         num_of_pages = request.form.get("num_of_pages", "all")
         TTS_model_type = request.form.get("TTS_model_type", "edge")
-        resolution = request.form.get("resolution", "480")
+        resolution = request.form.get("resolution", "1080")
         voice = request.form.get("voice", "zh-TW-YunJheNeural")
 
         if not pdf_file:
@@ -328,7 +332,7 @@ def process_with_edited_text():
         
         # Get edited pages from request
         edited_pages = request_data.get('pages', [])
-        resolution = request_data.get('resolution', 480)
+        resolution = request_data.get('resolution', 1080)
         TTS_model_type = request_data.get('TTS_model_type', 'edge')
         voice = request_data.get('voice', 'zh-TW-YunJheNeural')
         
@@ -366,7 +370,7 @@ def process_with_edited_text():
         try:
             resolution = int(resolution)
         except (ValueError, TypeError):
-            resolution = 480
+            resolution = 1080
         
         # Start processing with edited content
         processing_thread = threading.Thread(
@@ -450,7 +454,7 @@ def edit_text():
     # Get other session data
     pdf_path = get_session_data('pdf_path')
     TTS_model_type = get_session_data('TTS_model_type', 'edge')
-    resolution = get_session_data('resolution', 480)
+    resolution = get_session_data('resolution', 1080)
     voice = get_session_data('voice', 'zh-TW-YunJheNeural')
     
     app.logger.info(f"Edit text page - Session data: PDF={pdf_path}, Pages={len(generated_pages)}")

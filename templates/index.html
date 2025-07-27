@@ -53,19 +53,7 @@
                 </div>
 
                 <!-- Settings Grid -->
-                <div class="grid grid-cols-2" style="margin-bottom: 2rem;">
-                    <div class="form-group">
-                        <label class="form-label"> Resolution</label>
-                        <select name="resolution" class="form-select">
-                            <option value="144">144p</option>
-                            <option value="240">240p</option>
-                            <option value="360">360p</option>
-                            <option value="480" selected>480p (Recommended)</option>
-                            <option value="720">720p</option>
-                        </select>
-                        <div class="form-help">輸出影片品質（可在後續調整）</div>
-                    </div>
-
+                <div class="grid grid-cols-1" style="margin-bottom: 2rem;">
                     <!-- Voice Selection -->
                     <div class="form-group">
                         <label class="form-label">🎙️ Voice Selection</label>
@@ -88,13 +76,13 @@
                                 <option value="en-US-MichelleNeural">Michelle (Female) - News, Novel - Friendly, Pleasant</option>
                             </optgroup>
                         </select>
-                        <div class="form-help">語音選擇（可在文字編輯階段調整）</div>
                     </div>
                 </div>
 
                 <!-- Hidden inputs for default values -->
                 <input type="hidden" name="num_of_pages" value="all">
                 <input type="hidden" name="TTS_model_type" value="edge">
+                <input type="hidden" name="resolution" value="1080">
 
                 <!-- Extra Prompt Section -->
                 <div class="form-group" style="margin-bottom: 2rem;">

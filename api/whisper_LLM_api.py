@@ -41,6 +41,7 @@ RESOLUTION_MAP = {
     360: (640, 360),   # 360p
     480: (854, 480),   # 480p
     720: (1280, 720),  # 720p
+    1080: (1920, 1080), # 1080p
 }
 
 def ensure_directories_exist(*dirs):
@@ -61,7 +62,7 @@ async def api(
     output_video_dir: str,
     output_text_path: str,
     num_of_pages="all",
-    resolution: int = 480,
+    resolution: int = 1080,
     tts_model: str = 'edge',
     extra_prompt: str = None,
     voice: str = None
@@ -72,8 +73,8 @@ async def api(
 
     # Validate resolution input
     if resolution not in RESOLUTION_MAP:
-        logger.error(f"⚠️ Invalid resolution selected: {resolution}p. Defaulting to 480p.")
-        resolution = 480
+        logger.error(f"⚠️ Invalid resolution selected: {resolution}p. Defaulting to 1080p.")
+        resolution = 1080
     TARGET_WIDTH, TARGET_HEIGHT = RESOLUTION_MAP[resolution]
     logger.info(f"📏 Selected Resolution: {resolution}p ({TARGET_WIDTH}x{TARGET_HEIGHT})")
 
@@ -286,8 +287,8 @@ async def api_with_edited_script(video_path, pdf_file_path, edited_script, poppl
     
     # Validate resolution input
     if resolution not in RESOLUTION_MAP:
-        logger.error(f"⚠️ Invalid resolution selected: {resolution}p. Defaulting to 480p.")
-        resolution = 480
+        logger.error(f"⚠️ Invalid resolution selected: {resolution}p. Defaulting to 1080p.")
+        resolution = 1080
     TARGET_WIDTH, TARGET_HEIGHT = RESOLUTION_MAP[resolution]
     logger.info(f"📏 Selected Resolution: {resolution}p ({TARGET_WIDTH}x{TARGET_HEIGHT})")
     
