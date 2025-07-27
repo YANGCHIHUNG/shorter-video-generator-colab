@@ -219,6 +219,12 @@ def generate_text():
         pdf_file = request.files.get("pdf")
         video_file = request.files.get("video")
         extra_prompt = request.form.get("extra_prompt")
+        
+        # Get video generation parameters from first stage
+        num_of_pages = request.form.get("num_of_pages", "all")
+        TTS_model_type = request.form.get("TTS_model_type", "edge")
+        resolution = request.form.get("resolution", "480")
+        voice = request.form.get("voice", "zh-TW-YunJheNeural")
 
         if not pdf_file:
             app.logger.warning("⚠️ No PDF file uploaded.")
@@ -244,17 +250,21 @@ def generate_text():
                 api_generate_text_only(
                     pdf_file_path=pdf_path,
                     poppler_path=None,  # Use system-installed Poppler
-                    num_of_pages="all",
+                    num_of_pages=num_of_pages,
                     extra_prompt=extra_prompt if extra_prompt else None,
                     video_path=video_path
                 )
             )
             
-            # Store generated text in session for the edit page (with backup)
+            # Store ALL parameters in session for the edit page (with backup)
             set_session_data('generated_pages', generated_pages)
             set_session_data('pdf_path', pdf_path)
             set_session_data('video_path', video_path)
             set_session_data('extra_prompt', extra_prompt)
+            set_session_data('num_of_pages', num_of_pages)
+            set_session_data('TTS_model_type', TTS_model_type)
+            set_session_data('resolution', int(resolution))
+            set_session_data('voice', voice)
             
             # Debug logging
             app.logger.info(f"Session data saved - PDF: {pdf_path}, Video: {video_path}, Pages: {len(generated_pages)}")
@@ -439,8 +449,12 @@ def edit_text():
     
     # Get other session data
     pdf_path = get_session_data('pdf_path')
+    TTS_model_type = get_session_data('TTS_model_type', 'edge')
+    resolution = get_session_data('resolution', 480)
+    voice = get_session_data('voice', 'zh-TW-YunJheNeural')
     
     app.logger.info(f"Edit text page - Session data: PDF={pdf_path}, Pages={len(generated_pages)}")
+    app.logger.info(f"Edit text page - Parameters: TTS={TTS_model_type}, Resolution={resolution}, Voice={voice}")
     app.logger.info(f"Edit text page - Session keys: {list(session.keys())}")
     
     if not generated_pages:
@@ -451,7 +465,11 @@ def edit_text():
     if pages_param:
         set_session_data('generated_pages', generated_pages)
     
-    return render_template('edit_text.html', pages=generated_pages)
+    return render_template('edit_text.html', 
+                          pages=generated_pages,
+                          TTS_model_type=TTS_model_type,
+                          resolution=resolution,
+                          voice=voice)
 
 # ✅ Session backup storage (simplified for single user)
 def save_session_backup(data):

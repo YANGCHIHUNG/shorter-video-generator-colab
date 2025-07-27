@@ -156,8 +156,6 @@ async def api(
                     voice = "zh-TW-YunJheNeural"
                 logger.info(f"🎤 Processing segment {idx} with voice: {voice}")
                 tasks.append(edge_tts_example(response, output_audio_dir, filename, voice))
-            elif tts_model == 'kokoro':
-                tasks.append(kokoro_tts_example(response, output_audio_dir, filename))
         
         # Gather results - fail immediately if any task fails
         audio_files = await asyncio.gather(*tasks)
@@ -343,8 +341,6 @@ async def api_with_edited_script(video_path, pdf_file_path, edited_script, poppl
                     voice = "zh-TW-YunJheNeural"
                 logger.info(f"🎤 Processing segment {idx} with voice: {voice}")
                 tasks.append(edge_tts_example(page_text, output_audio_dir, filename, voice))
-            elif tts_model == 'kokoro':
-                tasks.append(kokoro_tts_example(page_text, output_audio_dir, filename))
         
         # Generate all audio files
         audio_files = await asyncio.gather(*tasks)

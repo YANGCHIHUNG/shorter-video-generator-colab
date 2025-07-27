@@ -136,7 +136,7 @@
                 <span style="color: #4CAF50;">✅</span> PDF text extraction
             </li>
             <li style="padding: 0.5rem 0; display: flex; align-items: center; gap: 0.5rem;">
-                <span style="color: #4CAF50;">✅</span> Multiple TTS models (Edge, Kokoro)
+                <span style="color: #4CAF50;">✅</span> Multiple TTS models (Edge TTS)
             </li>
             <li style="padding: 0.5rem 0; display: flex; align-items: center; gap: 0.5rem;">
                 <span style="color: #4CAF50;">✅</span> Customizable resolution output
@@ -219,24 +219,6 @@
         
         <h3>Text-to-Speech Functions</h3>
         
-        <h4>kokoro_tts_example</h4>
-        <div class="code-block">
-            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
-            <code>def kokoro_tts_example(
-    text: str,
-    output_dir: str,
-    filename: str,
-    voice: str = 'en-US-Wavenet-A') -> str:
-    """
-    Generate speech via Kokoro API and save MP3.
-    :return: path to saved file
-    """
-    os.makedirs(output_dir, exist_ok=True)
-    out_path = os.path.join(output_dir, filename)
-    # API call logic...
-    return out_path</code>
-        </div>
-
         <h4>edge_tts_example</h4>
         <div class="code-block">
             <button class="copy-btn" onclick="copyCode(this)">Copy</button>

@@ -53,24 +53,9 @@
                 </div>
 
                 <!-- Settings Grid -->
-                <div class="grid grid-cols-3" style="margin-bottom: 2rem;">
+                <div class="grid grid-cols-2" style="margin-bottom: 2rem;">
                     <div class="form-group">
-                        <label class="form-label">📄 Number of Pages</label>
-                        <input type="text" name="num_of_pages" placeholder="all" class="form-input">
-                        <div class="form-help">Enter 'all' or specific number</div>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">🎤 TTS Model</label>
-                        <select name="TTS_model_type" id="tts-model" class="form-select" onchange="toggleVoiceOptions()">
-                            <option value="edge" selected>Edge (Recommended)</option>
-                            <option value="kokoro">Kokoro</option>
-                        </select>
-                        <div class="form-help">Text-to-speech engine</div>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">📺 Resolution</label>
+                        <label class="form-label"> Resolution</label>
                         <select name="resolution" class="form-select">
                             <option value="144">144p</option>
                             <option value="240">240p</option>
@@ -78,34 +63,38 @@
                             <option value="480" selected>480p (Recommended)</option>
                             <option value="720">720p</option>
                         </select>
-                        <div class="form-help">Output video quality</div>
+                        <div class="form-help">輸出影片品質（可在後續調整）</div>
+                    </div>
+
+                    <!-- Voice Selection -->
+                    <div class="form-group">
+                        <label class="form-label">🎙️ Voice Selection</label>
+                        <select name="voice" id="voice-select" class="form-select">
+                            <optgroup label="🇹🇼 Chinese (中文)">
+                                <option value="zh-CN-XiaoxiaoNeural">Xiaoxiao (Female) - Mandarin - Warm</option>
+                                <option value="zh-CN-YunxiNeural" selected>Yunxi (Male) - Mandarin - Lively, Sunshine</option>
+                                <option value="zh-CN-XiaoyiNeural">Xiaoyi (Female) - Mandarin - Lively</option>
+                                <option value="zh-TW-HsiaoChenNeural">HsiaoChen (Female) - Traditional Chinese - Friendly</option>
+                                <option value="zh-TW-YunJheNeural">YunJhe (Male) - Traditional Chinese - Friendly</option>
+                            </optgroup>
+                            <optgroup label="🇺🇸 English (US) - Popular">
+                                <option value="en-US-AriaNeural">Aria (Female) - News, Novel - Positive, Confident</option>
+                                <option value="en-US-AvaNeural">Ava (Female) - Conversation - Expressive, Caring, Pleasant</option>
+                                <option value="en-US-AndrewNeural">Andrew (Male) - Conversation - Warm, Confident, Authentic</option>
+                                <option value="en-US-BrianNeural">Brian (Male) - Conversation - Approachable, Casual, Sincere</option>
+                                <option value="en-US-EmmaNeural">Emma (Female) - Conversation - Cheerful, Clear, Conversational</option>
+                                <option value="en-US-JennyNeural">Jenny (Female) - General - Friendly, Considerate, Comfort</option>
+                                <option value="en-US-ChristopherNeural">Christopher (Male) - News, Novel - Reliable, Authority</option>
+                                <option value="en-US-MichelleNeural">Michelle (Female) - News, Novel - Friendly, Pleasant</option>
+                            </optgroup>
+                        </select>
+                        <div class="form-help">語音選擇（可在文字編輯階段調整）</div>
                     </div>
                 </div>
 
-                <!-- Voice Selection (Edge TTS only) -->
-                <div class="form-group" id="voice-selection" style="margin-bottom: 2rem;">
-                    <label class="form-label">🎙️ Voice Selection</label>
-                    <select name="voice" id="voice-select" class="form-select">
-                        <optgroup label="🇹🇼 Chinese (中文)">
-                            <option value="zh-CN-XiaoxiaoNeural">Xiaoxiao (Female) - Mandarin - Warm</option>
-                            <option value="zh-CN-YunxiNeural" selected>Yunxi (Male) - Mandarin - Lively, Sunshine</option>
-                            <option value="zh-CN-XiaoyiNeural">Xiaoyi (Female) - Mandarin - Lively</option>
-                            <option value="zh-TW-HsiaoChenNeural">HsiaoChen (Female) - Traditional Chinese - Friendly</option>
-                            <option value="zh-TW-YunJheNeural">YunJhe (Male) - Traditional Chinese - Friendly</option>
-                        </optgroup>
-                        <optgroup label="🇺🇸 English (US) - Popular">
-                            <option value="en-US-AriaNeural">Aria (Female) - News, Novel - Positive, Confident</option>
-                            <option value="en-US-AvaNeural">Ava (Female) - Conversation - Expressive, Caring, Pleasant</option>
-                            <option value="en-US-AndrewNeural">Andrew (Male) - Conversation - Warm, Confident, Authentic</option>
-                            <option value="en-US-BrianNeural">Brian (Male) - Conversation - Approachable, Casual, Sincere</option>
-                            <option value="en-US-EmmaNeural">Emma (Female) - Conversation - Cheerful, Clear, Conversational</option>
-                            <option value="en-US-JennyNeural">Jenny (Female) - General - Friendly, Considerate, Comfort</option>
-                            <option value="en-US-ChristopherNeural">Christopher (Male) - News, Novel - Reliable, Authority</option>
-                            <option value="en-US-MichelleNeural">Michelle (Female) - News, Novel - Friendly, Pleasant</option>
-                        </optgroup>
-                    </select>
-                    <div class="form-help">Choose a voice for text-to-speech narration</div>
-                </div>
+                <!-- Hidden inputs for default values -->
+                <input type="hidden" name="num_of_pages" value="all">
+                <input type="hidden" name="TTS_model_type" value="edge">
 
                 <!-- Extra Prompt Section -->
                 <div class="form-group" style="margin-bottom: 2rem;">
@@ -183,22 +172,6 @@
 
 {% block extra_js %}
 <script>
-    // Toggle voice options based on TTS model selection
-    function toggleVoiceOptions() {
-        const ttsModel = document.getElementById('tts-model').value;
-        const voiceSelection = document.getElementById('voice-selection');
-        
-        if (ttsModel === 'edge') {
-            voiceSelection.style.display = 'block';
-            voiceSelection.style.opacity = '1';
-            voiceSelection.style.transform = 'translateY(0)';
-        } else {
-            voiceSelection.style.display = 'none';
-            voiceSelection.style.opacity = '0';
-            voiceSelection.style.transform = 'translateY(-10px)';
-        }
-    }
-
     // Enhanced file name update with validation
     function updateFileName(input, elementId, uploadId) {
         const fileNameElement = document.getElementById(elementId);
@@ -398,11 +371,6 @@
                 input.dispatchEvent(new Event('change'));
             }
         });
-    });
-
-    // Initialize voice options visibility on page load
-    document.addEventListener('DOMContentLoaded', function() {
-        toggleVoiceOptions();
     });
 
     // Helper functions

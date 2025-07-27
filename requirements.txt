@@ -21,10 +21,6 @@ Pillow>=8.0.0,<11.0.0
 # Compatibility with Colab's numpy version
 numpy>=1.21.0,<2.4.0
 
-# kokoro and misaki (with Chinese support)
-kokoro==0.8.4
-misaki[zh]==0.8.4
-
 # OpenAI Whisper (use PyPI version for stability)
 openai-whisper>=20231117
 

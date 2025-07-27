@@ -38,48 +38,46 @@
         <div class="card" style="margin-top: 2rem;">
             <div class="card-header">
                 <h3>🎬 Video Settings</h3>
+                <p style="color: var(--text-secondary); margin: 0.5rem 0 0 0; font-size: 0.9rem;">
+                    已使用第一階段的設定，您可以在此調整
+                </p>
             </div>
             <div class="card-body">
-                <div class="grid grid-cols-3">
-                    <div class="form-group">
-                        <label class="form-label">🎤 TTS Model</label>
-                        <select name="TTS_model_type" id="tts-model" class="form-select" onchange="toggleVoiceOptions()">
-                            <option value="edge" selected>Edge (Recommended)</option>
-                            <option value="kokoro">Kokoro</option>
-                        </select>
-                    </div>
-
+                <div class="grid grid-cols-2">
                     <div class="form-group">
                         <label class="form-label">📺 Resolution</label>
                         <select name="resolution" class="form-select">
-                            <option value="144">144p</option>
-                            <option value="240">240p</option>
-                            <option value="360">360p</option>
-                            <option value="480" selected>480p (Recommended)</option>
-                            <option value="720">720p</option>
+                            <option value="144" {% if resolution == 144 %}selected{% endif %}>144p</option>
+                            <option value="240" {% if resolution == 240 %}selected{% endif %}>240p</option>
+                            <option value="360" {% if resolution == 360 %}selected{% endif %}>360p</option>
+                            <option value="480" {% if resolution == 480 %}selected{% endif %}>480p (Recommended)</option>
+                            <option value="720" {% if resolution == 720 %}selected{% endif %}>720p</option>
                         </select>
                     </div>
 
-                    <div class="form-group" id="voice-selection">
+                    <div class="form-group">
                         <label class="form-label">🎙️ Voice</label>
                         <select name="voice" id="voice-select" class="form-select">
                             <optgroup label="🇨🇳 Chinese (中文)">
-                                <option value="zh-CN-XiaoxiaoNeural">Xiaoxiao (Female) - Warm</option>
-                                <option value="zh-CN-YunxiNeural">Yunxi (Male) - Lively</option>
-                                <option value="zh-CN-XiaoyiNeural">Xiaoyi (Female) - Lively</option>
-                                <option value="zh-TW-HsiaoChenNeural">HsiaoChen (Female) - Traditional</option>
-                                <option value="zh-TW-YunJheNeural">YunJhe (Male) - Traditional</option>
+                                <option value="zh-CN-XiaoxiaoNeural" {% if voice == 'zh-CN-XiaoxiaoNeural' %}selected{% endif %}>Xiaoxiao (Female) - Warm</option>
+                                <option value="zh-CN-YunxiNeural" {% if voice == 'zh-CN-YunxiNeural' %}selected{% endif %}>Yunxi (Male) - Lively</option>
+                                <option value="zh-CN-XiaoyiNeural" {% if voice == 'zh-CN-XiaoyiNeural' %}selected{% endif %}>Xiaoyi (Female) - Lively</option>
+                                <option value="zh-TW-HsiaoChenNeural" {% if voice == 'zh-TW-HsiaoChenNeural' %}selected{% endif %}>HsiaoChen (Female) - Traditional</option>
+                                <option value="zh-TW-YunJheNeural" {% if voice == 'zh-TW-YunJheNeural' %}selected{% endif %}>YunJhe (Male) - Traditional</option>
                             </optgroup>
                             <optgroup label="🇺🇸 English (US)">
-                                <option value="en-US-JennyNeural" selected>Jenny (Female) - Friendly</option>
-                                <option value="en-US-AriaNeural">Aria (Female) - Confident</option>
-                                <option value="en-US-AndrewNeural">Andrew (Male) - Warm</option>
-                                <option value="en-US-BrianNeural">Brian (Male) - Casual</option>
-                                <option value="en-US-EmmaNeural">Emma (Female) - Cheerful</option>
+                                <option value="en-US-JennyNeural" {% if voice == 'en-US-JennyNeural' %}selected{% endif %}>Jenny (Female) - Friendly</option>
+                                <option value="en-US-AriaNeural" {% if voice == 'en-US-AriaNeural' %}selected{% endif %}>Aria (Female) - Confident</option>
+                                <option value="en-US-AndrewNeural" {% if voice == 'en-US-AndrewNeural' %}selected{% endif %}>Andrew (Male) - Warm</option>
+                                <option value="en-US-BrianNeural" {% if voice == 'en-US-BrianNeural' %}selected{% endif %}>Brian (Male) - Casual</option>
+                                <option value="en-US-EmmaNeural" {% if voice == 'en-US-EmmaNeural' %}selected{% endif %}>Emma (Female) - Cheerful</option>
                             </optgroup>
                         </select>
                     </div>
                 </div>
+                
+                <!-- Hidden input for default TTS model -->
+                <input type="hidden" name="TTS_model_type" value="edge">
             </div>
         </div>
 
@@ -214,17 +212,6 @@
         
         // This would be implemented to preview audio
         alert(`Preview audio for page ${index + 1}\nVoice: ${voice}\nContent: ${content.substring(0, 100)}...`);
-    }
-
-    function toggleVoiceOptions() {
-        const ttsModel = document.getElementById('tts-model').value;
-        const voiceSelection = document.getElementById('voice-selection');
-        
-        if (ttsModel === 'edge') {
-            voiceSelection.style.display = 'block';
-        } else {
-            voiceSelection.style.display = 'none';
-        }
     }
 
     // Form submission
