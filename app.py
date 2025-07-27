@@ -9,11 +9,7 @@ import sys
 import warnings
 from werkzeug.utils import secure_filename
 from api.whisper_LLM_api import api, api_with_edited_script, api_generate_text_only
-from py        # Convert resolution to int
-        try:
-            resolution = int(resolution)
-        except (ValueError, TypeError):
-            resolution = 1080 import ngrok
+from pyngrok import ngrok
 from dotenv import load_dotenv
 import json
 import tempfile
