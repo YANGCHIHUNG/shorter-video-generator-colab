@@ -8,6 +8,7 @@ google-generativeai>=0.3.0
 
 # Whisper and speech processing
 edge-tts>=6.1.0
+openai-whisper>=20231117
 
 # Video and audio processing
 moviepy>=1.0.3
