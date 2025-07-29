@@ -44,14 +44,9 @@
             <a href="/" class="btn btn-secondary">
                 ← Back to Upload
             </a>
-            <div style="display: flex; gap: 1rem;">
-                <button type="button" class="btn btn-outline" onclick="resetAllText()">
-                    🔄 Reset All
-                </button>
-                <button type="submit" class="btn btn-primary btn-lg" id="generate-btn">
-                    🚀 Generate Video
-                </button>
-            </div>
+            <button type="submit" class="btn btn-primary btn-lg" id="generate-btn">
+                🚀 Generate Video
+            </button>
         </div>
 
         <!-- Processing Status -->
@@ -109,16 +104,8 @@
             pageDiv.style.marginBottom = '1.5rem';
             
             pageDiv.innerHTML = `
-                <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <div class="card-header">
                     <h3>📄 Page ${index + 1}</h3>
-                    <div>
-                        <button type="button" class="btn btn-sm btn-outline" onclick="resetPage(${index})">
-                            🔄 Reset
-                        </button>
-                        <button type="button" class="btn btn-sm btn-outline" onclick="previewAudio(${index})">
-                            🎵 Preview
-                        </button>
-                    </div>
                 </div>
                 <div class="card-body">
                     <textarea 
@@ -145,28 +132,6 @@
         const pageDiv = document.querySelector(`#pages-container .card:nth-child(${index + 1})`);
         const charCount = pageDiv.querySelector('.character-count');
         charCount.innerHTML = `Characters: ${content.length}`;
-    }
-
-    function resetPage(index) {
-        if (confirm('Are you sure you want to reset this page to the original text?')) {
-            currentPages[index] = originalPages[index];
-            renderPages();
-        }
-    }
-
-    function resetAllText() {
-        if (confirm('Are you sure you want to reset all pages to the original text?')) {
-            currentPages = [...originalPages];
-            renderPages();
-        }
-    }
-
-    function previewAudio(index) {
-        const content = currentPages[index];
-        const voice = document.getElementById('voice-select').value;
-        
-        // This would be implemented to preview audio
-        alert(`Preview audio for page ${index + 1}\nVoice: ${voice}\nContent: ${content.substring(0, 100)}...`);
     }
 
     // Form submission
@@ -327,22 +292,6 @@
     display: flex;
     align-items: center;
     margin-top: 0.5rem;
-}
-
-.btn-sm {
-    padding: 0.25rem 0.75rem;
-    font-size: 0.875rem;
-}
-
-.btn-outline {
-    background: transparent;
-    border: 1px solid var(--border);
-    color: var(--text-secondary);
-}
-
-.btn-outline:hover {
-    background: var(--surface-secondary);
-    color: var(--text-primary);
 }
 </style>
 {% endblock %}
