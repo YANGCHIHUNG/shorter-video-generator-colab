@@ -132,15 +132,10 @@ def process_video():
         return jsonify({"status": "error", "message": f"Server error: {e}"}), 500
 
 # ✅ Download Page
+# ✅ Download Route - Redirect to home (download.html removed)
 @app.route("/download")
 def download():
-    user_folder = os.path.join(app.config["OUTPUT_FOLDER"], "default_user", 'video')
-    processing_file = os.path.join(user_folder, "processing.txt")
-    is_processing = os.path.exists(processing_file)
-    files = []
-    if os.path.exists(user_folder) and not is_processing:
-        files = [f for f in os.listdir(user_folder) if f.endswith(".mp4")]
-    return render_template("download.html", files=files, is_processing=is_processing)
+    return redirect(url_for("index"))
 
 # ✅ Secure File Download
 @app.route("/download/<filename>")
@@ -158,6 +153,15 @@ def download_file(filename):
     else:
         flash("⚠️ File not found!", "error")
         return redirect(url_for("download"))
+
+# ✅ List Output Files Endpoint
+@app.route("/list_output_files")
+def list_output_files():
+    user_folder = os.path.join(app.config["OUTPUT_FOLDER"], "default_user", 'video')
+    files = []
+    if os.path.exists(user_folder):
+        files = [f for f in os.listdir(user_folder) if f.endswith(".mp4")]
+    return jsonify({"files": files})
 
 # ✅ Delete File Endpoint
 @app.route("/delete/<filename>", methods=["DELETE"])

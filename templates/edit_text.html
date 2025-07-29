@@ -188,14 +188,64 @@
                     const processingDiv = document.getElementById('processing');
                     
                     if (data.status === 'completed') {
-                        processingDiv.innerHTML = `
-                            <div class="status-indicator status-success" style="width: 100%; justify-content: center;">
-                                ✅ Video generated successfully!
-                            </div>
-                            <div style="margin-top: 1rem; text-align: center;">
-                                <a href="/download" class="btn btn-primary">View Downloads</a>
-                            </div>
-                        `;
+                        // Find the generated video file
+                        fetch('/list_output_files')
+                            .then(response => response.json())
+                            .then(fileData => {
+                                const videoFiles = fileData.files.filter(file => file.endsWith('.mp4'));
+                                if (videoFiles.length > 0) {
+                                    const videoFile = videoFiles[0];
+                                    processingDiv.innerHTML = `
+                                        <div class="status-indicator status-success" style="width: 100%; justify-content: center;">
+                                            ✅ Video generated successfully!
+                                        </div>
+                                    `;
+                                    
+                                    // Change the generate button to download button
+                                    const generateBtn = document.getElementById('generate-btn');
+                                    generateBtn.disabled = false;
+                                    generateBtn.type = 'button';
+                                    generateBtn.innerHTML = '📥 Download';
+                                    generateBtn.onclick = function(e) {
+                                        e.preventDefault();
+                                        window.location.href = `/download/${videoFile}`;
+                                    };
+                                    
+                                } else {
+                                    processingDiv.innerHTML = `
+                                        <div class="status-indicator status-success" style="width: 100%; justify-content: center;">
+                                            ✅ Video generated successfully!
+                                        </div>
+                                    `;
+                                    
+                                    // Change button to refresh
+                                    const generateBtn = document.getElementById('generate-btn');
+                                    generateBtn.disabled = false;
+                                    generateBtn.type = 'button';
+                                    generateBtn.innerHTML = '🔄 Refresh';
+                                    generateBtn.onclick = function(e) {
+                                        e.preventDefault();
+                                        window.location.reload();
+                                    };
+                                }
+                            })
+                            .catch(() => {
+                                processingDiv.innerHTML = `
+                                    <div class="status-indicator status-success" style="width: 100%; justify-content: center;">
+                                        ✅ Video generated successfully!
+                                    </div>
+                                `;
+                                
+                                // Change button to refresh
+                                const generateBtn = document.getElementById('generate-btn');
+                                generateBtn.disabled = false;
+                                generateBtn.type = 'button';
+                                generateBtn.innerHTML = '🔄 Refresh';
+                                generateBtn.onclick = function(e) {
+                                    e.preventDefault();
+                                    window.location.reload();
+                                };
+                            });
                         clearInterval(statusInterval);
                     } else if (data.status === 'failed') {
                         processingDiv.innerHTML = `
