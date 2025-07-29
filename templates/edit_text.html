@@ -130,7 +130,6 @@
                     >${page}</textarea>
                     <div class="form-help">
                         <span class="character-count">Characters: ${page.length}</span>
-                        <span style="margin-left: 1rem;">Estimated speech time: ~${Math.ceil(page.length / 200)} seconds</span>
                     </div>
                 </div>
             `;
@@ -145,9 +144,7 @@
         // Update character count
         const pageDiv = document.querySelector(`#pages-container .card:nth-child(${index + 1})`);
         const charCount = pageDiv.querySelector('.character-count');
-        const estimatedTime = Math.ceil(content.length / 200);
         charCount.innerHTML = `Characters: ${content.length}`;
-        charCount.nextElementSibling.innerHTML = `Estimated speech time: ~${estimatedTime} seconds`;
     }
 
     function resetPage(index) {
