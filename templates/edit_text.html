@@ -39,6 +39,39 @@
         <input type="hidden" name="voice" value="{{ voice|default('zh-CN-YunxiNeural') }}">
         <input type="hidden" name="TTS_model_type" value="edge">
 
+        <!-- Subtitle Options -->
+        <div class="card" style="margin-bottom: 2rem;">
+            <div class="card-header">
+                <h3>🎬 Video Options</h3>
+            </div>
+            <div class="card-body">
+                <div class="form-group">
+                    <label class="checkbox-container">
+                        <input type="checkbox" name="enable_subtitles" id="enable_subtitles" checked>
+                        <span class="checkmark"></span>
+                        <span class="checkbox-label">
+                            📝 Enable Subtitles
+                            <div class="form-help" style="margin-top: 0.25rem;">
+                                Generate and embed subtitles using Whisper AI and FFmpeg
+                            </div>
+                        </span>
+                    </label>
+                </div>
+                
+                <div id="subtitle-options" style="margin-top: 1rem; padding-left: 2rem;">
+                    <div class="form-group">
+                        <label class="form-label">Subtitle Style</label>
+                        <select name="subtitle_style" class="form-input">
+                            <option value="default">Default (white text, black outline)</option>
+                            <option value="yellow">Yellow text, black outline</option>
+                            <option value="white_box">White text, black background box</option>
+                            <option value="custom">Custom style</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Action Buttons -->
         <div style="display: flex; gap: 1rem; justify-content: space-between; margin-top: 2rem;">
             <a href="/" class="btn btn-secondary">
@@ -91,6 +124,16 @@
                 alert('No generated text found. Please start from the upload page.');
                 window.location.href = '/';
             }
+        }
+    });
+
+    // Handle subtitle checkbox toggle
+    document.getElementById('enable_subtitles').addEventListener('change', function() {
+        const subtitleOptions = document.getElementById('subtitle-options');
+        if (this.checked) {
+            subtitleOptions.classList.remove('disabled');
+        } else {
+            subtitleOptions.classList.add('disabled');
         }
     });
 
@@ -152,7 +195,9 @@
             pages: currentPages,
             TTS_model_type: formData.get('TTS_model_type'),
             resolution: formData.get('resolution'),
-            voice: formData.get('voice')
+            voice: formData.get('voice'),
+            enable_subtitles: formData.get('enable_subtitles') === 'on',
+            subtitle_style: formData.get('subtitle_style')
         };
         
         fetch('/process_with_edited_text', {
@@ -342,6 +387,69 @@
     display: flex;
     align-items: center;
     margin-top: 0.5rem;
+}
+
+.checkbox-container {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    cursor: pointer;
+    position: relative;
+    padding: 0.5rem 0;
+}
+
+.checkbox-container input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+    height: 0;
+    width: 0;
+}
+
+.checkmark {
+    width: 20px;
+    height: 20px;
+    background-color: var(--input-bg);
+    border: 2px solid var(--border-color);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.checkbox-container:hover .checkmark {
+    border-color: var(--primary-500);
+}
+
+.checkbox-container input:checked ~ .checkmark {
+    background-color: var(--primary-500);
+    border-color: var(--primary-500);
+}
+
+.checkbox-container input:checked ~ .checkmark:after {
+    content: "✓";
+    color: white;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.checkbox-label {
+    font-weight: 500;
+    color: var(--text);
+    line-height: 1.4;
+}
+
+#subtitle-options {
+    border-left: 2px solid var(--border-color);
+    transition: opacity 0.3s ease;
+}
+
+#subtitle-options.disabled {
+    opacity: 0.5;
+    pointer-events: none;
 }
 </style>
 {% endblock %}

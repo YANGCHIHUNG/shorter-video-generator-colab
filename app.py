@@ -335,6 +335,8 @@ def process_with_edited_text():
         resolution = request_data.get('resolution', 1080)
         TTS_model_type = request_data.get('TTS_model_type', 'edge')
         voice = request_data.get('voice', 'zh-TW-YunJheNeural')
+        enable_subtitles = request_data.get('enable_subtitles', False)
+        subtitle_style = request_data.get('subtitle_style', 'default')
         
         # Get saved parameters from session (with backup fallback)
         pdf_path = get_session_data('pdf_path')
@@ -375,7 +377,7 @@ def process_with_edited_text():
         # Start processing with edited content
         processing_thread = threading.Thread(
             target=run_processing_with_edited_text, 
-            args=(video_path, pdf_path, edited_pages, resolution, user_folder, TTS_model_type, voice)
+            args=(video_path, pdf_path, edited_pages, resolution, user_folder, TTS_model_type, voice, enable_subtitles, subtitle_style)
         )
         processing_thread.start()
         
@@ -386,7 +388,7 @@ def process_with_edited_text():
         app.logger.error(f"Error in /process_with_edited_text: {e}", exc_info=True)
         return jsonify({"status": "error", "message": f"Server error: {e}"}), 500
 
-def run_processing_with_edited_text(video_path, pdf_path, edited_pages, resolution, user_folder, TTS_model_type, voice):
+def run_processing_with_edited_text(video_path, pdf_path, edited_pages, resolution, user_folder, TTS_model_type, voice, enable_subtitles=False, subtitle_style="default"):
     """Background processing task with edited text"""
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
@@ -414,7 +416,9 @@ def run_processing_with_edited_text(video_path, pdf_path, edited_pages, resoluti
             output_text_path=os.path.join(user_folder, "text_output.txt"),
             resolution=int(resolution),
             tts_model=TTS_model_type,
-            voice=voice
+            voice=voice,
+            enable_subtitles=enable_subtitles,
+            subtitle_style=subtitle_style
         ))
         
         # Clean up

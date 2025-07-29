@@ -29,6 +29,7 @@ if parent_dir not in sys.path:
 from utility.audio import *
 from utility.pdf import *
 from utility.api import *
+from utility.whisper_subtitle import WhisperSubtitleGenerator
 
 load_dotenv()
 THREAD_COUNT = int(os.getenv("THREAD_COUNT", "4"))
@@ -276,9 +277,12 @@ async def api(
 
     logger.info("✅ Cleanup process completed!")
 
-async def api_with_edited_script(video_path, pdf_file_path, edited_script, poppler_path, output_audio_dir, output_video_dir, output_text_path, resolution, tts_model, voice):
+async def api_with_edited_script(video_path, pdf_file_path, edited_script, poppler_path, output_audio_dir, output_video_dir, output_text_path, resolution, tts_model, voice, enable_subtitles=False, subtitle_style="default"):
     """
     API function to process video with pre-edited script content
+    Args:
+        enable_subtitles: Whether to generate and embed subtitles
+        subtitle_style: Style for subtitles ('default', 'yellow', 'white_box', 'custom')
     """
     logger.info("🎬 Starting video processing with edited script...")
     
@@ -412,6 +416,42 @@ async def api_with_edited_script(video_path, pdf_file_path, edited_script, poppl
         final_video.close()
         for clip in video_clips:
             clip.close()
+        
+        # Process subtitles if enabled
+        if enable_subtitles:
+            logger.info("🎯 Processing subtitles...")
+            try:
+                subtitle_generator = WhisperSubtitleGenerator()
+                
+                # Create temporary video path for subtitle processing
+                temp_video_path = output_video_path.replace('.mp4', '_temp.mp4')
+                os.rename(output_video_path, temp_video_path)
+                
+                # Generate and embed subtitles
+                success = subtitle_generator.process_video_with_subtitles(
+                    input_video_path=temp_video_path,
+                    output_video_path=output_video_path,
+                    subtitle_style=subtitle_style,
+                    language="auto"  # Auto-detect language
+                )
+                
+                if success:
+                    logger.info("✅ Subtitles added successfully!")
+                    # Remove temporary video file
+                    if os.path.exists(temp_video_path):
+                        os.remove(temp_video_path)
+                else:
+                    logger.warning("⚠️ Subtitle generation failed, keeping original video")
+                    # Restore original video if subtitle processing failed
+                    if os.path.exists(temp_video_path):
+                        os.rename(temp_video_path, output_video_path)
+                        
+            except Exception as e:
+                logger.error(f"❌ Error processing subtitles: {e}")
+                # Restore original video if subtitle processing failed
+                temp_video_path = output_video_path.replace('.mp4', '_temp.mp4')
+                if os.path.exists(temp_video_path):
+                    os.rename(temp_video_path, output_video_path)
         
         logger.info("✅ Video processing with edited script completed!")
         
