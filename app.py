@@ -337,6 +337,7 @@ def process_with_edited_text():
         voice = request_data.get('voice', 'zh-TW-YunJheNeural')
         enable_subtitles = request_data.get('enable_subtitles', False)
         subtitle_style = request_data.get('subtitle_style', 'default')
+        traditional_chinese = request_data.get('traditional_chinese', False)
         
         # Get saved parameters from session (with backup fallback)
         pdf_path = get_session_data('pdf_path')
@@ -377,7 +378,7 @@ def process_with_edited_text():
         # Start processing with edited content
         processing_thread = threading.Thread(
             target=run_processing_with_edited_text, 
-            args=(video_path, pdf_path, edited_pages, resolution, user_folder, TTS_model_type, voice, enable_subtitles, subtitle_style)
+            args=(video_path, pdf_path, edited_pages, resolution, user_folder, TTS_model_type, voice, enable_subtitles, subtitle_style, traditional_chinese)
         )
         processing_thread.start()
         
@@ -388,7 +389,7 @@ def process_with_edited_text():
         app.logger.error(f"Error in /process_with_edited_text: {e}", exc_info=True)
         return jsonify({"status": "error", "message": f"Server error: {e}"}), 500
 
-def run_processing_with_edited_text(video_path, pdf_path, edited_pages, resolution, user_folder, TTS_model_type, voice, enable_subtitles=False, subtitle_style="default"):
+def run_processing_with_edited_text(video_path, pdf_path, edited_pages, resolution, user_folder, TTS_model_type, voice, enable_subtitles=False, subtitle_style="default", traditional_chinese=False):
     """Background processing task with edited text"""
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
@@ -418,7 +419,8 @@ def run_processing_with_edited_text(video_path, pdf_path, edited_pages, resoluti
             tts_model=TTS_model_type,
             voice=voice,
             enable_subtitles=enable_subtitles,
-            subtitle_style=subtitle_style
+            subtitle_style=subtitle_style,
+            traditional_chinese=traditional_chinese
         ))
         
         # Clean up

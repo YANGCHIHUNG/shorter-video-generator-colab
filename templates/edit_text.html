@@ -68,6 +68,19 @@
                             <option value="custom">Custom style</option>
                         </select>
                     </div>
+                    
+                    <div class="form-group">
+                        <label class="checkbox-container">
+                            <input type="checkbox" name="traditional_chinese" id="traditional_chinese">
+                            <span class="checkmark"></span>
+                            <div class="checkbox-text">
+                                🇹🇼 Traditional Chinese Subtitles
+                                <div class="checkbox-description">
+                                    Convert simplified Chinese subtitles to traditional Chinese (繁體中文)
+                                </div>
+                            </div>
+                        </label>
+                    </div>
                 </div>
             </div>
         </div>
@@ -218,7 +231,8 @@
             resolution: formData.get('resolution'),
             voice: formData.get('voice'),
             enable_subtitles: formData.get('enable_subtitles') === 'on',
-            subtitle_style: formData.get('subtitle_style')
+            subtitle_style: formData.get('subtitle_style'),
+            traditional_chinese: formData.get('traditional_chinese') === 'on'
         };
         
         fetch('/process_with_edited_text', {

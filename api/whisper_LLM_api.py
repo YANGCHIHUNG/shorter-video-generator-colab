@@ -296,7 +296,7 @@ async def api(
 
     logger.info("✅ Cleanup process completed!")
 
-async def api_with_edited_script(video_path, pdf_file_path, edited_script, poppler_path, output_audio_dir, output_video_dir, output_text_path, resolution, tts_model, voice, enable_subtitles=False, subtitle_style="default"):
+async def api_with_edited_script(video_path, pdf_file_path, edited_script, poppler_path, output_audio_dir, output_video_dir, output_text_path, resolution, tts_model, voice, enable_subtitles=False, subtitle_style="default", traditional_chinese=False):
     """
     API function to process video with pre-edited script content
     Args:
@@ -445,7 +445,7 @@ async def api_with_edited_script(video_path, pdf_file_path, edited_script, poppl
                 logger.info("💡 To enable subtitles, install: pip install openai-whisper")
             else:
                 try:
-                    subtitle_generator = WhisperSubtitleGenerator()
+                    subtitle_generator = WhisperSubtitleGenerator(traditional_chinese=traditional_chinese)
                     
                     # Create temporary video path for subtitle processing
                     temp_video_path = output_video_path.replace('.mp4', '_temp.mp4')

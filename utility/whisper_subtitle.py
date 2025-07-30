@@ -1,6 +1,7 @@
 """
 Whisper-based subtitle generation and embedding utilities
 針對 Google Colab 環境優化的中文字幕生成器
+支援簡體/繁體中文字幕轉換
 """
 
 import os
@@ -16,14 +17,34 @@ logger = logging.getLogger(__name__)
 class WhisperSubtitleGenerator:
     """Generate and embed subtitles using OpenAI Whisper and FFmpeg"""
     
-    def __init__(self):
-        """Initialize the Whisper subtitle generator"""
+    def __init__(self, traditional_chinese: bool = False):
+        """Initialize the Whisper subtitle generator
+        
+        Args:
+            traditional_chinese: If True, convert simplified Chinese to traditional Chinese
+        """
         try:
             import whisper
             self.whisper = whisper
             self.model = None
             self.model_size = "small"  # Default model size
             self.colab_fonts_setup = False  # Track if Colab fonts are setup
+            self.traditional_chinese = traditional_chinese  # Chinese conversion setting
+            
+            # Initialize Chinese converter if needed
+            if self.traditional_chinese:
+                try:
+                    import zhconv
+                    self.zhconv = zhconv
+                    self.use_zhconv = True
+                    logger.info("✅ Traditional Chinese conversion enabled (using zhconv)")
+                except ImportError:
+                    logger.info("💡 zhconv not available, using built-in conversion table")
+                    self.use_zhconv = False
+                    # Initialize built-in conversion table
+                    self._init_builtin_conversion_table()
+            else:
+                self.use_zhconv = False
             
             # Suppress audio warnings for Colab
             os.environ['ALSA_PCM_CARD'] = '0'
@@ -104,7 +125,13 @@ class WhisperSubtitleGenerator:
     
     def _get_colab_subtitle_style(self, style_type: str) -> str:
         """Get Colab-optimized subtitle styles with Chinese font support"""
-        base_font = "Noto Sans CJK SC"  # Primary Chinese font
+        # Choose font based on Chinese preference
+        if self.traditional_chinese:
+            base_font = "Noto Sans CJK TC"  # Traditional Chinese font
+            logger.debug("🔤 Using Traditional Chinese font: Noto Sans CJK TC")
+        else:
+            base_font = "Noto Sans CJK SC"  # Simplified Chinese font
+            logger.debug("🔤 Using Simplified Chinese font: Noto Sans CJK SC")
         
         styles = {
             "default": f"FontName={base_font},FontSize=20,PrimaryColour=&Hffffff,OutlineColour=&H000000,Outline=3,Shadow=1",
@@ -233,6 +260,88 @@ class WhisperSubtitleGenerator:
         
         logger.warning(f"⚠️ Unrecognized language code: {language}")
         return None
+    
+    def _init_builtin_conversion_table(self):
+        """Initialize built-in simplified to traditional Chinese conversion table"""
+        self.s2t_table = {
+            # 基本常用字
+            '这': '這', '个': '個', '中': '中', '文': '文', '测': '測', '试': '試',
+            '简': '簡', '体': '體', '繁': '繁', '转': '轉', '换': '換',
+            
+            # 技術詞彙
+            '人': '人', '工': '工', '智': '智', '能': '能', '语': '語', '音': '音',
+            '识': '識', '别': '別', '技': '技', '术': '術',
+            
+            # 視頻相關
+            '视': '視', '频': '頻', '字': '字', '幕': '幕', '自': '自', '动': '動',
+            '生': '生', '成': '成', '系': '系', '统': '統',
+            
+            # 學習機器相關
+            '机': '機', '器': '器', '学': '學', '习': '習', '和': '和', '深': '深',
+            '度': '度', '习': '習',
+            
+            # 常用詞
+            '是': '是', '一': '一', '了': '了', '在': '在', '有': '有', '的': '的',
+            '我': '我', '你': '你', '他': '他', '她': '她', '它': '它',
+            '们': '們', '来': '來', '去': '去', '说': '說', '话': '話',
+            '时': '時', '间': '間', '地': '地', '方': '方', '问': '問', '题': '題',
+            '内': '內', '容': '容', '混': '混', '合': '合', '言': '言',
+            '第': '第', '段': '段', '会': '會', '将': '將', '对': '對', '于': '於',
+            '为': '為', '与': '與', '从': '從', '到': '到', '过': '過', '得': '得',
+            '应': '應', '该': '該', '让': '讓', '给': '給', '没': '沒', '还': '還',
+            '后': '後', '前': '前', '下': '下', '上': '上', '里': '裡', '外': '外',
+            '开': '開', '关': '關', '进': '進', '出': '出', '入': '入',
+            '处': '處', '理': '理', '做': '做', '用': '用', '可': '可',
+            '要': '要', '想': '想', '看': '看', '听': '聽', '读': '讀', '写': '寫',
+            
+            # 數字和標點保持不變
+            '0': '0', '1': '1', '2': '2', '3': '3', '4': '4', '5': '5', 
+            '6': '6', '7': '7', '8': '8', '9': '9',
+        }
+        logger.info(f"✅ Built-in conversion table initialized with {len(self.s2t_table)} characters")
+    
+    def _builtin_convert_to_traditional(self, text: str) -> str:
+        """Convert text using built-in conversion table"""
+        result = ""
+        for char in text:
+            if char in self.s2t_table:
+                result += self.s2t_table[char]
+            else:
+                result += char  # Keep original character
+        return result
+    
+    def _convert_to_traditional_chinese(self, text: str) -> str:
+        """Convert simplified Chinese text to traditional Chinese"""
+        if not self.traditional_chinese:
+            return text
+        
+        try:
+            if self.use_zhconv and hasattr(self, 'zhconv'):
+                # Use zhconv library if available
+                converted = self.zhconv.convert(text, 'zh-tw')
+                logger.debug(f"🔄 Converted using zhconv: {text[:30]}... → {converted[:30]}...")
+                return converted
+            else:
+                # Use built-in conversion table
+                converted = self._builtin_convert_to_traditional(text)
+                logger.debug(f"🔄 Converted using built-in table: {text[:30]}... → {converted[:30]}...")
+                return converted
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to convert to traditional Chinese: {e}")
+            return text
+    
+    def _detect_and_convert_chinese(self, text: str) -> str:
+        """Detect Chinese content and convert if needed"""
+        if not self.traditional_chinese:
+            return text
+        
+        # Check if text contains Chinese characters
+        chinese_chars = sum(1 for char in text if '\u4e00' <= char <= '\u9fff')
+        if chinese_chars > 0:
+            logger.debug(f"🔄 Converting Chinese text: {text[:50]}...")
+            return self._convert_to_traditional_chinese(text)
+        
+        return text
 
     def load_model(self, model_size: str = "small"):
         """Load Whisper model with specified size"""
@@ -333,13 +442,17 @@ class WhisperSubtitleGenerator:
             raise
 
     def _create_srt_from_segments(self, segments) -> str:
-        """Create SRT content from Whisper segments"""
+        """Create SRT content from Whisper segments with optional traditional Chinese conversion"""
         srt_content = ""
         
         for i, segment in enumerate(segments, 1):
             start_time = self._format_timestamp(segment['start'])
             end_time = self._format_timestamp(segment['end'])
             text = segment['text'].strip()
+            
+            # Apply traditional Chinese conversion if enabled
+            if self.traditional_chinese:
+                text = self._detect_and_convert_chinese(text)
             
             srt_content += f"{i}\n"
             srt_content += f"{start_time} --> {end_time}\n"
