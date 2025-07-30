@@ -5,12 +5,22 @@ import time
 import logging
 import subprocess
 import nest_asyncio
+import warnings
 from tqdm import tqdm
 from moviepy.editor import ImageClip, AudioFileClip, concatenate_videoclips
 import numpy as np
 from pdf2image import convert_from_path
 from PIL import Image
 from dotenv import load_dotenv
+
+# Suppress audio system warnings for headless environments (like Colab)
+os.environ.setdefault('ALSA_PCM_CARD', '0')
+os.environ.setdefault('ALSA_PCM_DEVICE', '0')
+os.environ.setdefault('XDG_RUNTIME_DIR', '/tmp/runtime-root')
+
+# Suppress common warnings
+warnings.filterwarnings("ignore", category=UserWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 # Logging configuration
 logger = logging.getLogger(__name__)
@@ -29,7 +39,16 @@ if parent_dir not in sys.path:
 from utility.audio import *
 from utility.pdf import *
 from utility.api import *
-from utility.whisper_subtitle import WhisperSubtitleGenerator
+
+# Import with error handling for Colab environment
+try:
+    from utility.whisper_subtitle import WhisperSubtitleGenerator
+    SUBTITLE_AVAILABLE = True
+    logger.info("✅ Subtitle functionality available")
+except ImportError as e:
+    logger.warning(f"⚠️ Subtitle functionality not available: {e}")
+    WhisperSubtitleGenerator = None
+    SUBTITLE_AVAILABLE = False
 
 load_dotenv()
 THREAD_COUNT = int(os.getenv("THREAD_COUNT", "4"))
@@ -420,38 +439,43 @@ async def api_with_edited_script(video_path, pdf_file_path, edited_script, poppl
         # Process subtitles if enabled
         if enable_subtitles:
             logger.info("🎯 Processing subtitles...")
-            try:
-                subtitle_generator = WhisperSubtitleGenerator()
-                
-                # Create temporary video path for subtitle processing
-                temp_video_path = output_video_path.replace('.mp4', '_temp.mp4')
-                os.rename(output_video_path, temp_video_path)
-                
-                # Generate and embed subtitles
-                success = subtitle_generator.process_video_with_subtitles(
-                    input_video_path=temp_video_path,
-                    output_video_path=output_video_path,
-                    subtitle_style=subtitle_style,
-                    language="auto"  # Auto-detect language
-                )
-                
-                if success:
-                    logger.info("✅ Subtitles added successfully!")
-                    # Remove temporary video file
-                    if os.path.exists(temp_video_path):
-                        os.remove(temp_video_path)
-                else:
-                    logger.warning("⚠️ Subtitle generation failed, keeping original video")
+            
+            if not SUBTITLE_AVAILABLE or WhisperSubtitleGenerator is None:
+                logger.warning("⚠️ Subtitle functionality not available. Skipping subtitle generation.")
+                logger.info("💡 To enable subtitles, install: pip install openai-whisper")
+            else:
+                try:
+                    subtitle_generator = WhisperSubtitleGenerator()
+                    
+                    # Create temporary video path for subtitle processing
+                    temp_video_path = output_video_path.replace('.mp4', '_temp.mp4')
+                    os.rename(output_video_path, temp_video_path)
+                    
+                    # Generate and embed subtitles
+                    success = subtitle_generator.process_video_with_subtitles(
+                        input_video_path=temp_video_path,
+                        output_video_path=output_video_path,
+                        subtitle_style=subtitle_style,
+                        language="auto"  # Auto-detect language
+                    )
+                    
+                    if success:
+                        logger.info("✅ Subtitles added successfully!")
+                        # Remove temporary video file
+                        if os.path.exists(temp_video_path):
+                            os.remove(temp_video_path)
+                    else:
+                        logger.warning("⚠️ Subtitle generation failed, keeping original video")
+                        # Restore original video if subtitle processing failed
+                        if os.path.exists(temp_video_path):
+                            os.rename(temp_video_path, output_video_path)
+                            
+                except Exception as e:
+                    logger.error(f"❌ Error processing subtitles: {e}")
                     # Restore original video if subtitle processing failed
+                    temp_video_path = output_video_path.replace('.mp4', '_temp.mp4')
                     if os.path.exists(temp_video_path):
                         os.rename(temp_video_path, output_video_path)
-                        
-            except Exception as e:
-                logger.error(f"❌ Error processing subtitles: {e}")
-                # Restore original video if subtitle processing failed
-                temp_video_path = output_video_path.replace('.mp4', '_temp.mp4')
-                if os.path.exists(temp_video_path):
-                    os.rename(temp_video_path, output_video_path)
         
         logger.info("✅ Video processing with edited script completed!")
         
