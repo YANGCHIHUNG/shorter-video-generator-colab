@@ -69,18 +69,8 @@
                         </select>
                     </div>
                     
-                    <div class="form-group">
-                        <label class="checkbox-container">
-                            <input type="checkbox" name="traditional_chinese" id="traditional_chinese">
-                            <span class="checkmark"></span>
-                            <div class="checkbox-text">
-                                🇹🇼 Traditional Chinese Subtitles
-                                <div class="checkbox-description">
-                                    Convert simplified Chinese subtitles to traditional Chinese (繁體中文)
-                                </div>
-                            </div>
-                        </label>
-                    </div>
+                    <!-- Traditional Chinese conversion is now enabled by default -->
+                    <!-- Checkbox removed as requested -->
                 </div>
             </div>
         </div>
@@ -232,7 +222,7 @@
             voice: formData.get('voice'),
             enable_subtitles: formData.get('enable_subtitles') === 'on',
             subtitle_style: formData.get('subtitle_style'),
-            traditional_chinese: formData.get('traditional_chinese') === 'on'
+            traditional_chinese: true  // Always enable traditional Chinese conversion
         };
         
         fetch('/process_with_edited_text', {
