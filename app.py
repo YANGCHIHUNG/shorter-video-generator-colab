@@ -391,6 +391,9 @@ def process_with_edited_text():
 
 def run_processing_with_edited_text(video_path, pdf_path, edited_pages, resolution, user_folder, TTS_model_type, voice, enable_subtitles=False, subtitle_style="default", traditional_chinese=False):
     """Background processing task with edited text"""
+    # Add debug logging for traditional chinese parameter
+    app.logger.info(f"🇹🇼 Processing with traditional_chinese={traditional_chinese}")
+    
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     video_folder = os.path.join(user_folder, 'video')

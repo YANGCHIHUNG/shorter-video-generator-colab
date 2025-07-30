@@ -439,12 +439,14 @@ async def api_with_edited_script(video_path, pdf_file_path, edited_script, poppl
         # Process subtitles if enabled
         if enable_subtitles:
             logger.info("🎯 Processing subtitles...")
+            logger.info(f"🇹🇼 Traditional Chinese parameter: {traditional_chinese}")
             
             if not SUBTITLE_AVAILABLE or WhisperSubtitleGenerator is None:
                 logger.warning("⚠️ Subtitle functionality not available. Skipping subtitle generation.")
                 logger.info("💡 To enable subtitles, install: pip install openai-whisper")
             else:
                 try:
+                    logger.info(f"🏗️ Creating WhisperSubtitleGenerator with traditional_chinese={traditional_chinese}")
                     subtitle_generator = WhisperSubtitleGenerator(traditional_chinese=traditional_chinese)
                     
                     # Create temporary video path for subtitle processing
