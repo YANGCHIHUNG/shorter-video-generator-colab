@@ -25,6 +25,9 @@ numpy>=1.21.0,<2.4.0
 # OpenAI Whisper (use PyPI version for stability)
 openai-whisper>=20231117
 
+# Chinese conversion (Professional solution)
+opencc-python-reimplemented>=0.1.7
+
 # System tools
 tqdm
 nest_asyncio>=1.5.6

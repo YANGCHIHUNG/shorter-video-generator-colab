@@ -1,7 +1,7 @@
 """
 Whisper-based subtitle generation and embedding utilities
 針對 Google Colab 環境優化的中文字幕生成器
-支援簡體/繁體中文字幕轉換
+支援簡體/繁體中文字幕轉換 - 使用專業 OpenCC 庫
 """
 
 import os
@@ -9,6 +9,20 @@ import tempfile
 import subprocess
 import logging
 from typing import Optional
+
+# Import OpenCC for professional Chinese conversion
+try:
+    import opencc
+    OPENCC_AVAILABLE = True
+except ImportError:
+    OPENCC_AVAILABLE = False
+
+# Import zhconv as fallback
+try:
+    import zhconv
+    ZHCONV_AVAILABLE = True
+except ImportError:
+    ZHCONV_AVAILABLE = False
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -35,18 +49,34 @@ class WhisperSubtitleGenerator:
             
             # Initialize Chinese converter if needed
             if self.traditional_chinese:
-                try:
-                    import zhconv
-                    self.zhconv = zhconv
-                    self.use_zhconv = True
-                    logger.info("✅ Traditional Chinese conversion enabled (using zhconv)")
-                except ImportError:
-                    logger.info("💡 zhconv not available, using built-in conversion table")
-                    self.use_zhconv = False
-                    # Initialize built-in conversion table
+                # Try OpenCC first (most comprehensive)
+                if OPENCC_AVAILABLE:
+                    try:
+                        self.opencc_converter = opencc.OpenCC('s2t')  # Simplified to Traditional
+                        self.use_converter = 'opencc'
+                        logger.info("✅ Traditional Chinese conversion enabled (using OpenCC - professional grade)")
+                    except Exception as e:
+                        logger.warning(f"OpenCC initialization failed: {e}, falling back to zhconv")
+                        self.use_converter = None
+                
+                # Fallback to zhconv
+                if not hasattr(self, 'use_converter') or self.use_converter is None:
+                    if ZHCONV_AVAILABLE:
+                        try:
+                            import zhconv
+                            self.zhconv = zhconv
+                            self.use_converter = 'zhconv'
+                            logger.info("✅ Traditional Chinese conversion enabled (using zhconv)")
+                        except ImportError:
+                            self.use_converter = None
+                
+                # Final fallback to built-in table
+                if not hasattr(self, 'use_converter') or self.use_converter is None:
+                    logger.info("💡 Using built-in conversion table (limited coverage)")
+                    self.use_converter = 'builtin'
                     self._init_builtin_conversion_table()
             else:
-                self.use_zhconv = False
+                self.use_converter = None
             
             # Suppress audio warnings for Colab
             os.environ['ALSA_PCM_CARD'] = '0'
@@ -66,18 +96,34 @@ class WhisperSubtitleGenerator:
             
             # Initialize Chinese converter if needed
             if self.traditional_chinese:
-                try:
-                    import zhconv
-                    self.zhconv = zhconv
-                    self.use_zhconv = True
-                    logger.info("✅ Traditional Chinese conversion enabled (using zhconv)")
-                except ImportError:
-                    logger.info("💡 zhconv not available, using built-in conversion table")
-                    self.use_zhconv = False
-                    # Initialize built-in conversion table
+                # Try OpenCC first (most comprehensive)
+                if OPENCC_AVAILABLE:
+                    try:
+                        self.opencc_converter = opencc.OpenCC('s2t')  # Simplified to Traditional
+                        self.use_converter = 'opencc'
+                        logger.info("✅ Traditional Chinese conversion enabled (using OpenCC - professional grade)")
+                    except Exception as e:
+                        logger.warning(f"OpenCC initialization failed: {e}, falling back to zhconv")
+                        self.use_converter = None
+                
+                # Fallback to zhconv
+                if not hasattr(self, 'use_converter') or self.use_converter is None:
+                    if ZHCONV_AVAILABLE:
+                        try:
+                            import zhconv
+                            self.zhconv = zhconv
+                            self.use_converter = 'zhconv'
+                            logger.info("✅ Traditional Chinese conversion enabled (using zhconv)")
+                        except ImportError:
+                            self.use_converter = None
+                
+                # Final fallback to built-in table
+                if not hasattr(self, 'use_converter') or self.use_converter is None:
+                    logger.info("💡 Using built-in conversion table (limited coverage)")
+                    self.use_converter = 'builtin'
                     self._init_builtin_conversion_table()
             else:
-                self.use_zhconv = False
+                self.use_converter = None
             
             logger.info("✅ WhisperSubtitleGenerator initialized in test mode")
         except Exception as e:
@@ -320,6 +366,46 @@ class WhisperSubtitleGenerator:
             '处': '處', '理': '理', '做': '做', '用': '用', '可': '可',
             '要': '要', '想': '想', '看': '看', '听': '聽', '读': '讀', '写': '寫',
             
+            # 從日誌中發現的缺失字符 - 重要補充！
+            '张': '張', '讲': '講', '述': '述', '发': '發', '展': '展', '资': '資', 
+            '料': '料', '库': '庫', '结': '結', '合': '合', '趋': '趨', '势': '勢',
+            '市': '市', '场': '場', '规': '規', '模': '模', '正': '正', '快': '快',
+            '速': '速', '扩': '擴', '张': '張', '年': '年', '全': '全', '球': '球',
+            '已': '已', '经': '經', '达': '達', '月': '月', '亿': '億', '美': '美',
+            '元': '元', '预': '預', '计': '計', '突': '突', '破': '破', '万': '萬',
+            '增': '增', '长': '長', '率': '率', '高': '高', '明': '明', '越': '越',
+            '多': '多', '企': '企', '业': '業', '所': '所', '接': '接', '受': '受',
+            '应': '應', '用': '用', '同': '同', '像': '像', '微': '微', '软': '軟',
+            '些': '些', '科': '科', '巨': '巨', '头': '頭', '也': '也', '积': '積',
+            '极': '極', '投': '投', '进': '進', '步': '步', '推': '推', '另': '另',
+            '外': '外', '重': '重', '点': '點', '根': '根', '据': '據', '测': '測',
+            '超': '超', '部': '部', '署': '署', '利': '利', '清': '清', '代': '代',
+            '表': '表', '管': '管', '领': '領', '域': '域', '具': '具', '巨': '巨',
+            '大': '大', '潜': '潛', '力': '力', '接': '接', '下': '下', '头': '頭',
+            '影': '影', '片': '片', '介': '介', '绍': '紹', '就': '就', '然': '然',
+            '原': '原', '查': '查', '询': '詢', '单': '單', '日': '日', '常': '常',
+            '复': '複', '杂': '雜', '法': '法', '几': '幾', '处': '處', '降': '降',
+            '低': '低', '门': '門', '槛': '檻', '熟': '熟', '悉': '悉', '城': '城',
+            '同': '同', '己': '己', '备': '備', '意': '意', '解': '解', '析': '析',
+            '图': '圖', '准': '準', '确': '確', '提': '提', '复': '復', '转': '轉',
+            '运': '運', '太': '太', '条': '條', '件': '件', '升': '升', '减': '減',
+            '锁': '鎖', '精': '精', '确': '確', '场': '場', '景': '景', '非': '非',
+            '广': '廣', '泛': '泛', '向': '向', '制': '制', '造': '造', '医': '醫',
+            '疗': '療', '金': '金', '融': '融', '等': '等', '凡': '凡', '需': '需',
+            '及': '及', '实': '實', '数': '數', '行': '行', '使': '使', '最': '最',
+            '互': '互', '便': '便', '探': '探', '索': '索', '整': '整', '运': '運',
+            '作': '作', '流': '流', '程': '程', '首': '首', '先': '先', '接': '接',
+            '收': '收', '病': '病', '输': '輸', '今': '今', '销': '銷', '售': '售',
+            '额': '額', '少': '少', '样': '樣', '着': '著', '透': '透', '例': '例',
+            '如': '如', '分': '分', '构': '構', '取': '取', '键': '鍵', '讯': '訊',
+            '完': '完', '些': '些', '念': '念', '库': '庫', '里': '裡', '应': '應',
+            '哪': '哪', '些': '些', '讯': '訊', '成': '成', '句': '句', '且': '且',
+            '尽': '盡', '量': '量', '优': '優', '化': '化', '着': '著', '跑': '跑',
+            '更': '更', '执': '執', '从': '從', '取': '取', '求': '求', '算': '算',
+            '总': '總', '平': '平', '均': '均', '值': '值', '把': '把', '图': '圖',
+            '格': '格', '呈': '呈', '现': '現', '给': '給', '或': '或', '者': '者',
+            '够': '夠', '示': '示', '提': '提',
+            
             # 數字和標點保持不變
             '0': '0', '1': '1', '2': '2', '3': '3', '4': '4', '5': '5', 
             '6': '6', '7': '7', '8': '8', '9': '9',
@@ -337,21 +423,29 @@ class WhisperSubtitleGenerator:
         return result
     
     def _convert_to_traditional_chinese(self, text: str) -> str:
-        """Convert simplified Chinese text to traditional Chinese"""
+        """Convert simplified Chinese text to traditional Chinese using the best available method"""
         if not self.traditional_chinese:
             return text
         
         try:
-            if self.use_zhconv and hasattr(self, 'zhconv'):
-                # Use zhconv library if available
+            # Use OpenCC first (most comprehensive and accurate)
+            if hasattr(self, 'use_converter') and self.use_converter == 'opencc':
+                converted = self.opencc_converter.convert(text)
+                logger.info(f"🔄 Converted using OpenCC: {text[:30]}... → {converted[:30]}...")
+                return converted
+            
+            # Fallback to zhconv
+            elif hasattr(self, 'use_converter') and self.use_converter == 'zhconv':
                 converted = self.zhconv.convert(text, 'zh-tw')
                 logger.info(f"🔄 Converted using zhconv: {text[:30]}... → {converted[:30]}...")
                 return converted
+            
+            # Final fallback to built-in table
             else:
-                # Use built-in conversion table
                 converted = self._builtin_convert_to_traditional(text)
                 logger.info(f"🔄 Converted using built-in table: {text[:30]}... → {converted[:30]}...")
                 return converted
+                
         except Exception as e:
             logger.warning(f"⚠️ Failed to convert to traditional Chinese: {e}")
             return text
