@@ -475,6 +475,7 @@ def edit_text():
     
     return render_template('edit_text.html', 
                           pages=generated_pages,
+                          pages_json=json.dumps(generated_pages),  # Fix: Add missing pages_json
                           TTS_model_type=TTS_model_type,
                           resolution=resolution,
                           voice=voice)

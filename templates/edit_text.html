@@ -105,22 +105,43 @@
         
         if (pages) {
             try {
-                currentPages = JSON.parse(decodeURIComponent(pages));
+                const decodedPages = decodeURIComponent(pages);
+                currentPages = JSON.parse(decodedPages);
+                
+                // Validate pages data
+                if (!Array.isArray(currentPages) || currentPages.length === 0) {
+                    throw new Error('Invalid pages data format');
+                }
+                
                 originalPages = [...currentPages];
                 renderPages();
+                console.log('✅ Pages loaded from URL parameter:', currentPages.length, 'pages');
             } catch (e) {
-                console.error('Error parsing pages:', e);
-                alert('Error loading generated text. Please try again.');
-                window.location.href = '/';
+                console.error('Error parsing pages from URL:', e);
+                console.log('🔄 Attempting to load from backend...');
+                
+                // Try to get pages from backend as fallback
+                const backendPages = {{ pages_json|default('null')|safe }};
+                if (backendPages && Array.isArray(backendPages) && backendPages.length > 0) {
+                    currentPages = backendPages;
+                    originalPages = [...currentPages];
+                    renderPages();
+                    console.log('✅ Pages loaded from backend:', currentPages.length, 'pages');
+                } else {
+                    alert('Error loading generated text. Please try again.');
+                    window.location.href = '/';
+                }
             }
         } else {
             // Try to get pages from backend
             const backendPages = {{ pages_json|default('null')|safe }};
-            if (backendPages && backendPages.length > 0) {
+            if (backendPages && Array.isArray(backendPages) && backendPages.length > 0) {
                 currentPages = backendPages;
                 originalPages = [...currentPages];
                 renderPages();
+                console.log('✅ Pages loaded from backend:', currentPages.length, 'pages');
             } else {
+                console.error('No generated text found in URL or backend');
                 alert('No generated text found. Please start from the upload page.');
                 window.location.href = '/';
             }
