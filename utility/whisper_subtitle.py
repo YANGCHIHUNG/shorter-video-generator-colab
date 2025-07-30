@@ -179,6 +179,61 @@ class WhisperSubtitleGenerator:
             logger.error(f"❌ Fallback method error: {e}")
             return False
 
+    def _normalize_language_code(self, language: str) -> Optional[str]:
+        """Normalize language code for Whisper compatibility"""
+        if not language:
+            return None
+            
+        language = language.lower().strip()
+        
+        # Handle common language codes and mappings
+        language_mapping = {
+            'auto': None,  # Auto-detection
+            'zh': 'zh',    # Chinese
+            'zh-cn': 'zh', # Simplified Chinese
+            'zh-tw': 'zh', # Traditional Chinese  
+            'zh-hk': 'zh', # Hong Kong Chinese
+            'en': 'en',    # English
+            'en-us': 'en', # US English
+            'en-gb': 'en', # UK English
+            'ja': 'ja',    # Japanese
+            'ko': 'ko',    # Korean
+            'es': 'es',    # Spanish
+            'fr': 'fr',    # French
+            'de': 'de',    # German
+            'it': 'it',    # Italian
+            'pt': 'pt',    # Portuguese
+            'ru': 'ru',    # Russian
+            'ar': 'ar',    # Arabic
+            'hi': 'hi',    # Hindi
+        }
+        
+        # Check if it's a known language code
+        if language in language_mapping:
+            normalized = language_mapping[language]
+            if normalized:
+                logger.info(f"🔄 Language code normalized: {language} → {normalized}")
+            return normalized
+        
+        # Check if it's already a valid Whisper language
+        whisper_languages = [
+            'en', 'zh', 'de', 'es', 'ru', 'ko', 'fr', 'ja', 'pt', 'tr', 'pl', 'ca', 'nl', 
+            'ar', 'sv', 'it', 'id', 'hi', 'fi', 'vi', 'he', 'uk', 'el', 'ms', 'cs', 'ro', 
+            'da', 'hu', 'ta', 'no', 'th', 'ur', 'hr', 'bg', 'lt', 'la', 'mi', 'ml', 'cy', 
+            'sk', 'te', 'fa', 'lv', 'bn', 'sr', 'az', 'sl', 'kn', 'et', 'mk', 'br', 'eu', 
+            'is', 'hy', 'ne', 'mn', 'bs', 'kk', 'sq', 'sw', 'gl', 'mr', 'pa', 'si', 'km', 
+            'sn', 'yo', 'so', 'af', 'oc', 'ka', 'be', 'tg', 'sd', 'gu', 'am', 'yi', 'lo', 
+            'uz', 'fo', 'ht', 'ps', 'tk', 'nn', 'mt', 'sa', 'lb', 'my', 'bo', 'tl', 'mg', 
+            'as', 'tt', 'haw', 'ln', 'ha', 'ba', 'jw', 'su'
+        ]
+        
+        if language in whisper_languages:
+            logger.info(f"✅ Valid Whisper language code: {language}")
+            return language
+        
+        logger.warning(f"⚠️ Unrecognized language code: {language}")
+        return None
+
     def load_model(self, model_size: str = "small"):
         """Load Whisper model with specified size"""
         try:
@@ -237,15 +292,29 @@ class WhisperSubtitleGenerator:
             
             logger.info(f"🤖 Generating subtitles from audio...")
             
+            # Handle language parameter - Whisper doesn't support "auto"
+            whisper_language = None
+            if language and language.lower() != "auto":
+                # Validate and convert language codes
+                whisper_language = self._normalize_language_code(language)
+                if whisper_language:
+                    logger.info(f"🌍 Using specified language: {whisper_language}")
+                else:
+                    logger.warning(f"⚠️ Invalid language code '{language}', using auto-detection")
+            else:
+                logger.info("🌍 Using automatic language detection")
+            
             # Whisper transcription options
             options = {
-                "language": language,
                 "word_timestamps": True,
                 "verbose": False
             }
             
-            # Remove None values
-            options = {k: v for k, v in options.items() if v is not None}
+            # Only add language if it's valid
+            if whisper_language:
+                options["language"] = whisper_language
+            
+            logger.info(f"🔧 Whisper options: {options}")
             
             result = self.model.transcribe(audio_path, **options)
             

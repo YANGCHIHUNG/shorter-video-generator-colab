@@ -456,7 +456,7 @@ async def api_with_edited_script(video_path, pdf_file_path, edited_script, poppl
                         input_video_path=temp_video_path,
                         output_video_path=output_video_path,
                         subtitle_style=subtitle_style,
-                        language="auto"  # Auto-detect language
+                        language=None  # Use auto-detection (None instead of "auto")
                     )
                     
                     if success:
