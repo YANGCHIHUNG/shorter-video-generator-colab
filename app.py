@@ -58,8 +58,25 @@ def allowed_file(filename):
 def run_processing(video_path, pdf_path, num_of_pages, resolution, user_folder, TTS_model_type, extra_prompt, voice):
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
+    
+    # 🧹 清理舊檔案：在開始新處理前清除所有舊的輸出檔案
     video_folder = os.path.join(user_folder, 'video')
+    audio_folder = os.path.join(user_folder, 'audio')
+    
+    # 刪除舊的影片和音檔
+    for folder in [video_folder, audio_folder]:
+        if os.path.exists(folder):
+            try:
+                import shutil
+                shutil.rmtree(folder)
+                app.logger.info(f"🗑️ Cleaned old files in: {folder}")
+            except Exception as e:
+                app.logger.warning(f"⚠️ Could not clean folder {folder}: {e}")
+    
+    # 重新建立資料夾
     os.makedirs(video_folder, exist_ok=True)
+    os.makedirs(audio_folder, exist_ok=True)
+    
     status_file = os.path.join(video_folder, "processing.txt")
     with open(status_file, "w") as f:
         f.write("processing")
@@ -396,8 +413,25 @@ def run_processing_with_edited_text(video_path, pdf_path, edited_pages, resoluti
     
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
+    
+    # 🧹 清理舊檔案：在開始新處理前清除所有舊的輸出檔案
     video_folder = os.path.join(user_folder, 'video')
+    audio_folder = os.path.join(user_folder, 'audio')
+    
+    # 刪除舊的影片和音檔
+    for folder in [video_folder, audio_folder]:
+        if os.path.exists(folder):
+            try:
+                import shutil
+                shutil.rmtree(folder)
+                app.logger.info(f"🗑️ Cleaned old files in: {folder}")
+            except Exception as e:
+                app.logger.warning(f"⚠️ Could not clean folder {folder}: {e}")
+    
+    # 重新建立資料夾
     os.makedirs(video_folder, exist_ok=True)
+    os.makedirs(audio_folder, exist_ok=True)
+    
     status_file = os.path.join(video_folder, "processing.txt")
     
     with open(status_file, "w") as f:

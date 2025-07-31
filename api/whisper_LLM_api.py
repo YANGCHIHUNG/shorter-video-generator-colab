@@ -254,8 +254,10 @@ async def api(
         logger.error(f"❌ Error during video concatenation: {e}", exc_info=True)
         raise
 
-    # Step 12: Export final video
-    output_video_path = os.path.join(output_video_dir, f"output_video_{resolution}p.mp4")
+    # Step 12: Export final video with unique filename
+    import time
+    timestamp = int(time.time())
+    output_video_path = os.path.join(output_video_dir, f"output_video_{resolution}p_{timestamp}.mp4")
     logger.info(f"📤 Exporting final video to: {output_video_path}")
     try:
         final_video.write_videofile(
@@ -413,7 +415,10 @@ async def api_with_edited_script(video_path, pdf_file_path, edited_script, poppl
     try:
         final_video = concatenate_videoclips(video_clips, method="chain")
         
-        output_video_path = os.path.join(output_video_dir, f"output_video_{resolution}p.mp4")
+        # Use unique filename with timestamp
+        import time
+        timestamp = int(time.time())
+        output_video_path = os.path.join(output_video_dir, f"output_video_{resolution}p_{timestamp}.mp4")
         logger.info(f"📤 Exporting final video to: {output_video_path}")
         
         final_video.write_videofile(
