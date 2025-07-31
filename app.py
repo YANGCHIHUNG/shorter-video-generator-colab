@@ -239,6 +239,16 @@ def generate_text():
     try:
         # 🧹 清除舊的 session 數據，確保新處理不受影響
         session.clear()
+        
+        # 🧹 同時清除 session backup 文件，避免重新載入舊數據
+        backup_file = os.path.join(user_folder, "session_backup.json")
+        if os.path.exists(backup_file):
+            try:
+                os.remove(backup_file)
+                app.logger.info("🗑️ Removed old session backup file")
+            except Exception as e:
+                app.logger.warning(f"⚠️ Could not remove backup file: {e}")
+        
         app.logger.info("🗑️ Cleared old session data for new PDF processing")
         
         pdf_file = request.files.get("pdf")
@@ -290,6 +300,16 @@ def generate_text():
             set_session_data('TTS_model_type', TTS_model_type)
             set_session_data('resolution', int(resolution))
             set_session_data('voice', voice)
+            
+            # 重要：立即驗證session數據的正確性
+            stored_pdf_path = get_session_data('pdf_path')
+            if stored_pdf_path != pdf_path:
+                app.logger.error(f"❌ Session data verification failed! Expected: {pdf_path}, Got: {stored_pdf_path}")
+                # 強制重新設置
+                session['pdf_path'] = pdf_path
+                app.logger.info(f"🔧 Force reset PDF path in session: {pdf_path}")
+            else:
+                app.logger.info(f"✅ Session data verification passed: {stored_pdf_path}")
             
             # Debug logging
             app.logger.info(f"Session data saved - PDF: {pdf_path}, Video: {video_path}, Pages: {len(generated_pages)}")
@@ -361,6 +381,12 @@ def process_with_edited_text():
         traditional_chinese = request_data.get('traditional_chinese', False)
         
         # Get saved parameters from session (with backup fallback)
+        # 但首先檢查 backup 文件是否存在，如果不存在說明是新的處理會話
+        backup_file = os.path.join(user_folder, "session_backup.json")
+        if not os.path.exists(backup_file):
+            app.logger.warning("⚠️ No session backup found, session data might be incomplete")
+            return jsonify({"status": "error", "message": "Session expired, please upload PDF again"}), 400
+        
         pdf_path = get_session_data('pdf_path')
         video_path = get_session_data('video_path')
         extra_prompt = get_session_data('extra_prompt')
@@ -531,6 +557,10 @@ def save_session_backup(data):
     backup_file = os.path.join(backup_dir, "session_backup.json")
     
     try:
+        # 特別記錄PDF路徑的保存
+        if 'pdf_path' in data:
+            app.logger.info(f"💾 Saving PDF path to backup: {data['pdf_path']}")
+        
         with open(backup_file, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
         app.logger.info(f"Session backup saved to {backup_file}")
@@ -559,14 +589,23 @@ def get_session_data(key, default=None):
     # Try Flask session first
     value = session.get(key, default)
     
+    # 特別記錄PDF路徑的獲取
+    if key == 'pdf_path':
+        app.logger.info(f"🔍 Getting PDF path - Session value: {value}")
+    
     # If not found, try backup
     if value is None:
         backup_data = load_session_backup()
         value = backup_data.get(key, default)
         
+        if key == 'pdf_path':
+            app.logger.info(f"🔍 PDF path from backup: {value}")
+        
         # If found in backup, restore to session
         if value is not None:
             session[key] = value
+            if key == 'pdf_path':
+                app.logger.info(f"🔄 Restored PDF path to session: {value}")
     
     return value
 
@@ -574,10 +613,18 @@ def set_session_data(key, value):
     """Set session data with backup"""
     session[key] = value
     
+    # 特別記錄PDF路徑的設置
+    if key == 'pdf_path':
+        app.logger.info(f"🔧 Setting PDF path in session: {value}")
+    
     # Also save to backup
     backup_data = load_session_backup()
     backup_data[key] = value
     save_session_backup(backup_data)
+    
+    # 驗證設置是否成功
+    if key == 'pdf_path':
+        app.logger.info(f"✅ PDF path verification - Session: {session.get(key)}, Backup will contain: {backup_data.get(key)}")
 
 if __name__ == "__main__":
     try:
