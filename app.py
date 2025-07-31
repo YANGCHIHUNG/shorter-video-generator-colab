@@ -237,6 +237,10 @@ def generate_text():
     os.makedirs(user_folder, exist_ok=True)
     
     try:
+        # 🧹 清除舊的 session 數據，確保新處理不受影響
+        session.clear()
+        app.logger.info("🗑️ Cleared old session data for new PDF processing")
+        
         pdf_file = request.files.get("pdf")
         video_file = request.files.get("video")
         extra_prompt = request.form.get("extra_prompt")
