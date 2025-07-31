@@ -402,7 +402,7 @@
     // 攔截導航欄中的 Home 連結點擊事件
     document.addEventListener('DOMContentLoaded', function() {
         // 找到導航欄中的 Home 連結
-        const homeLinks = document.querySelectorAll('a[href="/"], a[href="{{ url_for(\'index\') }}"]');
+        const homeLinks = document.querySelectorAll('a[href="/"], a[href="{{ url_for("index") }}"]');
         
         homeLinks.forEach(function(homeLink) {
             // 檢查是否包含 Home 文字或圖標
