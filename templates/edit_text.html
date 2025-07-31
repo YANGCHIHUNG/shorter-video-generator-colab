@@ -77,9 +77,9 @@
 
         <!-- Action Buttons -->
         <div style="display: flex; gap: 1rem; justify-content: space-between; margin-top: 2rem;">
-            <a href="/" class="btn btn-secondary">
+            <button type="button" class="btn btn-secondary" id="back-btn" onclick="cleanupAndGoBack()">
                 ← Back to Upload
-            </a>
+            </button>
             <button type="submit" class="btn btn-primary btn-lg" id="generate-btn">
                 🚀 Generate Video
             </button>
@@ -341,6 +341,133 @@
         const generateBtn = document.getElementById('generate-btn');
         generateBtn.disabled = false;
         generateBtn.innerHTML = '🚀 Generate Video';
+    }
+
+    // 清理檔案並返回上傳頁面
+    async function cleanupAndGoBack() {
+        const backBtn = document.getElementById('back-btn');
+        const originalText = backBtn.innerHTML;
+        
+        try {
+            // 顯示清理中狀態
+            backBtn.disabled = true;
+            backBtn.innerHTML = '🗑️ Cleaning...';
+            
+            // 調用清理API
+            const response = await fetch('/cleanup_files', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+            
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                console.log('Files cleaned:', result.deleted_files);
+                console.log('Folders cleaned:', result.deleted_folders);
+                
+                // 短暫顯示成功狀態
+                backBtn.innerHTML = '✅ Cleaned!';
+                
+                // 延遲一下然後跳轉
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 800);
+            } else {
+                throw new Error(result.message || 'Cleanup failed');
+            }
+        } catch (error) {
+            console.error('Cleanup error:', error);
+            
+            // 顯示錯誤狀態
+            backBtn.innerHTML = '❌ Error';
+            
+            // 顯示警告，但仍然允許跳轉
+            alert('清理檔案時發生錯誤，但您仍可以繼續。錯誤: ' + error.message);
+            
+            // 恢復按鈕並跳轉
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 1000);
+        } finally {
+            // 確保按鈕最終會被重置（雖然頁面會跳轉）
+            setTimeout(() => {
+                backBtn.disabled = false;
+                backBtn.innerHTML = originalText;
+            }, 2000);
+        }
+    }
+
+    // 攔截導航欄中的 Home 連結點擊事件
+    document.addEventListener('DOMContentLoaded', function() {
+        // 找到導航欄中的 Home 連結
+        const homeLinks = document.querySelectorAll('a[href="/"], a[href="{{ url_for(\'index\') }}"]');
+        
+        homeLinks.forEach(function(homeLink) {
+            // 檢查是否包含 Home 文字或圖標
+            if (homeLink.textContent.includes('Home') || homeLink.textContent.includes('🏠')) {
+                homeLink.addEventListener('click', function(event) {
+                    event.preventDefault(); // 阻止默認跳轉
+                    cleanupAndGoHome(homeLink);
+                });
+            }
+        });
+    });
+
+    // 清理檔案並跳轉到首頁（針對導航欄 Home 連結）
+    async function cleanupAndGoHome(homeLink) {
+        const originalText = homeLink.innerHTML;
+        
+        try {
+            // 顯示清理中狀態
+            homeLink.style.pointerEvents = 'none';
+            homeLink.innerHTML = '🗑️ Cleaning...';
+            
+            // 調用清理API
+            const response = await fetch('/cleanup_files', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+            
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                console.log('Files cleaned:', result.deleted_files);
+                console.log('Folders cleaned:', result.deleted_folders);
+                
+                // 短暫顯示成功狀態
+                homeLink.innerHTML = '✅ Cleaned!';
+                
+                // 延遲一下然後跳轉
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 800);
+            } else {
+                throw new Error(result.message || 'Cleanup failed');
+            }
+        } catch (error) {
+            console.error('Cleanup error:', error);
+            
+            // 顯示錯誤狀態
+            homeLink.innerHTML = '❌ Error';
+            
+            // 顯示警告，但仍然允許跳轉
+            alert('清理檔案時發生錯誤，但您仍可以繼續。錯誤: ' + error.message);
+            
+            // 恢復按鈕並跳轉
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 1000);
+        } finally {
+            // 確保連結最終會被重置（雖然頁面會跳轉）
+            setTimeout(() => {
+                homeLink.style.pointerEvents = 'auto';
+                homeLink.innerHTML = originalText;
+            }, 2000);
+        }
     }
 </script>
 {% endblock %}

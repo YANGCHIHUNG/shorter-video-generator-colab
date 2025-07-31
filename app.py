@@ -549,6 +549,75 @@ def edit_text():
                           resolution=resolution,
                           voice=voice)
 
+@app.route('/cleanup_files', methods=['POST'])
+def cleanup_files():
+    """清理所有產生的檔案並清除session數據"""
+    try:
+        user_folder = os.path.join(app.config["OUTPUT_FOLDER"], "default_user")
+        
+        # 要清理的資料夾
+        folders_to_clean = ['video', 'audio']
+        
+        # 要刪除的檔案類型
+        files_to_clean = []
+        
+        # 收集所有要刪除的檔案
+        if os.path.exists(user_folder):
+            # 刪除PDF檔案
+            for file in os.listdir(user_folder):
+                if file.endswith('.pdf'):
+                    files_to_clean.append(os.path.join(user_folder, file))
+            
+            # 刪除text_output.txt
+            text_output = os.path.join(user_folder, "text_output.txt")
+            if os.path.exists(text_output):
+                files_to_clean.append(text_output)
+            
+            # 刪除session backup
+            session_backup = os.path.join(user_folder, "session_backup.json")
+            if os.path.exists(session_backup):
+                files_to_clean.append(session_backup)
+        
+        # 刪除檔案
+        deleted_files = []
+        for file_path in files_to_clean:
+            try:
+                os.remove(file_path)
+                deleted_files.append(os.path.basename(file_path))
+                app.logger.info(f"🗑️ Deleted file: {file_path}")
+            except Exception as e:
+                app.logger.warning(f"⚠️ Could not delete file {file_path}: {e}")
+        
+        # 刪除資料夾
+        deleted_folders = []
+        for folder_name in folders_to_clean:
+            folder_path = os.path.join(user_folder, folder_name)
+            if os.path.exists(folder_path):
+                try:
+                    shutil.rmtree(folder_path)
+                    deleted_folders.append(folder_name)
+                    app.logger.info(f"🗑️ Deleted folder: {folder_path}")
+                except Exception as e:
+                    app.logger.warning(f"⚠️ Could not delete folder {folder_path}: {e}")
+        
+        # 清除Flask session
+        session.clear()
+        app.logger.info("🗑️ Cleared Flask session data")
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'All files cleaned successfully',
+            'deleted_files': deleted_files,
+            'deleted_folders': deleted_folders
+        })
+        
+    except Exception as e:
+        app.logger.error(f"❌ Error during cleanup: {e}", exc_info=True)
+        return jsonify({
+            'status': 'error',
+            'message': f'Cleanup failed: {str(e)}'
+        }), 500
+
 # ✅ Session backup storage (simplified for single user)
 def save_session_backup(data):
     """Save session data to a backup file"""

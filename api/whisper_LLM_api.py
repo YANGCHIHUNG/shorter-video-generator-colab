@@ -338,15 +338,18 @@ async def api_with_edited_script(video_path, pdf_file_path, edited_script, poppl
     
     logger.info(f"📝 Parsed {len(pages)} pages from edited script")
     
-    # Convert PDF pages to images
+    # Convert PDF pages to images (only the pages we need for the edited script)
     logger.info(f"🖼️ Converting PDF pages to images...")
     try:
+        num_pages_needed = len(pages)
         pdf_images = convert_from_path(
             pdf_file_path,
             poppler_path=poppler_path,
+            first_page=1,
+            last_page=num_pages_needed,
             thread_count=THREAD_COUNT
         )
-        logger.info(f"✅ Successfully converted {len(pdf_images)} PDF pages to images")
+        logger.info(f"✅ Successfully converted {len(pdf_images)} PDF pages to images (needed: {num_pages_needed})")
     except Exception as e:
         logger.error(f"❌ PDF to image conversion failed: {e}", exc_info=True)
         raise
@@ -386,6 +389,16 @@ async def api_with_edited_script(video_path, pdf_file_path, edited_script, poppl
     except Exception as e:
         logger.error(f"❌ Error during TTS generation: {e}", exc_info=True)
         raise
+
+    # Validate that we have matching numbers of images and audio files
+    if len(pdf_images) != len(valid_audio_files):
+        error_msg = f"❌ Mismatch: {len(pdf_images)} PDF images vs {len(valid_audio_files)} audio files"
+        logger.error(error_msg)
+        logger.error(f"📄 PDF pages available: {len(pdf_images)}")
+        logger.error(f"🔊 Audio files generated: {len(valid_audio_files)}")
+        raise RuntimeError(f"PDF pages and audio files count mismatch: {len(pdf_images)} vs {len(valid_audio_files)}")
+    
+    logger.info(f"✅ Validation passed: {len(pdf_images)} images match {len(valid_audio_files)} audio files")
 
     # Create video clips
     logger.info("🎬 Creating video clips...")
