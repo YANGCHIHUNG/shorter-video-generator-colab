@@ -13,6 +13,10 @@ from pyngrok import ngrok
 from dotenv import load_dotenv
 import json
 import tempfile
+from pdf2image import convert_from_path
+from PIL import Image
+import io
+import base64
 
 # ✅ Suppress warnings and error messages
 warnings.filterwarnings("ignore")
@@ -548,6 +552,70 @@ def edit_text():
                           TTS_model_type=TTS_model_type,
                           resolution=resolution,
                           voice=voice)
+
+@app.route('/pdf_preview/<int:page_num>')
+def pdf_preview(page_num):
+    """生成PDF頁面預覽圖片"""
+    try:
+        user_folder = os.path.join(app.config["OUTPUT_FOLDER"], "default_user")
+        
+        # 獲取PDF路徑
+        pdf_path = get_session_data('pdf_path')
+        if not pdf_path or not os.path.exists(pdf_path):
+            app.logger.error(f"PDF file not found: {pdf_path}")
+            return jsonify({"error": "PDF file not found"}), 404
+        
+        # 設置poppler路徑
+        if system_os == "Windows":
+            poppler_path = os.path.join(BASE_DIR, "poppler", "poppler-0.89.0", "bin")
+        else:
+            poppler_path = None
+        
+        # 轉換特定頁面為圖片
+        try:
+            pages = convert_from_path(
+                pdf_path,
+                poppler_path=poppler_path,
+                first_page=page_num,
+                last_page=page_num,
+                dpi=200,  # 調整DPI以獲得合適的圖片質量
+                thread_count=1
+            )
+            
+            if not pages:
+                return jsonify({"error": f"Page {page_num} not found"}), 404
+            
+            # 將圖片轉換為Base64字符串
+            page_image = pages[0]
+            
+            # 調整圖片大小以適合預覽（寬度最大300px）
+            max_width = 300
+            aspect_ratio = page_image.height / page_image.width
+            new_width = min(max_width, page_image.width)
+            new_height = int(new_width * aspect_ratio)
+            
+            resized_image = page_image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            
+            # 轉換為Base64
+            buffer = io.BytesIO()
+            resized_image.save(buffer, format='PNG')
+            img_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+            
+            return jsonify({
+                "success": True,
+                "image": f"data:image/png;base64,{img_base64}",
+                "page": page_num,
+                "width": new_width,
+                "height": new_height
+            })
+            
+        except Exception as e:
+            app.logger.error(f"Error converting PDF page {page_num}: {e}")
+            return jsonify({"error": f"Error converting PDF page: {str(e)}"}), 500
+            
+    except Exception as e:
+        app.logger.error(f"Error in pdf_preview: {e}")
+        return jsonify({"error": "Internal server error"}), 500
 
 @app.route('/cleanup_files', methods=['POST'])
 def cleanup_files():
