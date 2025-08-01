@@ -35,12 +35,13 @@
     /* 響應式設計 - 優化上下佈局 */
     @media (max-width: 768px) {
         .pdf-preview-content {
-            min-height: 300px !important;
-            max-height: 400px !important;
+            min-height: 400px !important;
+            max-height: 600px !important;
         }
         
         .pdf-preview-content img {
-            max-height: 350px !important;
+            max-height: 550px !important;
+            min-height: 300px !important;
         }
         
         /* 調整文字區域在小螢幕上的高度 */
@@ -61,8 +62,13 @@
         }
         
         .pdf-preview-content {
+            min-height: 350px !important;
+            max-height: 500px !important;
+        }
+        
+        .pdf-preview-content img {
+            max-height: 450px !important;
             min-height: 250px !important;
-            max-height: 350px !important;
         }
         
         .page-content {
@@ -288,8 +294,8 @@
                                 <div class="pdf-preview-content" style="
                                     padding: 20px; 
                                     text-align: center; 
-                                    min-height: 400px; 
-                                    max-height: 600px;
+                                    min-height: 500px; 
+                                    max-height: 800px;
                                     display: flex; 
                                     align-items: center; 
                                     justify-content: center;
@@ -405,12 +411,14 @@
                                  alt="PDF Page ${pageNum}" 
                                  style="
                                      max-width: 100%; 
-                                     max-height: 550px; 
+                                     max-height: 750px; 
+                                     min-height: 400px;
                                      height: auto;
                                      border-radius: 8px;
                                      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
                                      transition: transform 0.3s ease, box-shadow 0.3s ease;
                                      cursor: pointer;
+                                     object-fit: contain;
                                  "
                                  title="PDF Page ${pageNum} Preview - Click to zoom"
                                  onclick="zoomPdfPreview(this)"
