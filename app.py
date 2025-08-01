@@ -383,6 +383,8 @@ def process_with_edited_text():
         enable_subtitles = request_data.get('enable_subtitles', False)
         subtitle_style = request_data.get('subtitle_style', 'default')
         traditional_chinese = request_data.get('traditional_chinese', False)
+        enable_subtitle_correction = request_data.get('enable_subtitle_correction', True)
+        correction_threshold = request_data.get('correction_threshold', 70)
         
         # Get saved parameters from session (with backup fallback)
         # 但首先檢查 backup 文件是否存在，如果不存在說明是新的處理會話
@@ -429,7 +431,7 @@ def process_with_edited_text():
         # Start processing with edited content
         processing_thread = threading.Thread(
             target=run_processing_with_edited_text, 
-            args=(video_path, pdf_path, edited_pages, resolution, user_folder, TTS_model_type, voice, enable_subtitles, subtitle_style, traditional_chinese)
+            args=(video_path, pdf_path, edited_pages, resolution, user_folder, TTS_model_type, voice, enable_subtitles, subtitle_style, traditional_chinese, enable_subtitle_correction, correction_threshold)
         )
         processing_thread.start()
         
@@ -440,7 +442,7 @@ def process_with_edited_text():
         app.logger.error(f"Error in /process_with_edited_text: {e}", exc_info=True)
         return jsonify({"status": "error", "message": f"Server error: {e}"}), 500
 
-def run_processing_with_edited_text(video_path, pdf_path, edited_pages, resolution, user_folder, TTS_model_type, voice, enable_subtitles=False, subtitle_style="default", traditional_chinese=False):
+def run_processing_with_edited_text(video_path, pdf_path, edited_pages, resolution, user_folder, TTS_model_type, voice, enable_subtitles=False, subtitle_style="default", traditional_chinese=False, enable_subtitle_correction=True, correction_threshold=70):
     """Background processing task with edited text"""
     # Add debug logging for traditional chinese parameter
     app.logger.info(f"🇹🇼 Processing with traditional_chinese={traditional_chinese}")
@@ -491,7 +493,9 @@ def run_processing_with_edited_text(video_path, pdf_path, edited_pages, resoluti
             voice=voice,
             enable_subtitles=enable_subtitles,
             subtitle_style=subtitle_style,
-            traditional_chinese=traditional_chinese
+            traditional_chinese=traditional_chinese,
+            enable_subtitle_correction=enable_subtitle_correction,
+            correction_threshold=correction_threshold
         ))
         
         # Clean up

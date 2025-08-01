@@ -43,11 +43,14 @@ from utility.api import *
 # Import with error handling for Colab environment
 try:
     from utility.whisper_subtitle import WhisperSubtitleGenerator
+    from utility.subtitle_corrector import EnhancedWhisperSubtitleGenerator
     SUBTITLE_AVAILABLE = True
     logger.info("✅ Subtitle functionality available")
+    logger.info("✅ Subtitle correction functionality available")
 except ImportError as e:
     logger.warning(f"⚠️ Subtitle functionality not available: {e}")
     WhisperSubtitleGenerator = None
+    EnhancedWhisperSubtitleGenerator = None
     SUBTITLE_AVAILABLE = False
 
 load_dotenv()
@@ -298,12 +301,63 @@ async def api(
 
     logger.info("✅ Cleanup process completed!")
 
-async def api_with_edited_script(video_path, pdf_file_path, edited_script, poppler_path, output_audio_dir, output_video_dir, output_text_path, resolution, tts_model, voice, enable_subtitles=False, subtitle_style="default", traditional_chinese=False):
+async def process_video_with_enhanced_subtitles(enhanced_generator, input_video_path, output_video_path, subtitle_style):
+    """
+    使用增強版字幕生成器處理視頻
+    """
+    try:
+        import tempfile
+        import subprocess
+        
+        # 從視頻中提取音檔
+        with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_audio:
+            temp_audio_path = temp_audio.name
+        
+        # 使用FFmpeg提取音檔
+        cmd = [
+            'ffmpeg', '-i', input_video_path, 
+            '-vn', '-acodec', 'pcm_s16le', 
+            '-ar', '16000', '-ac', '1',
+            '-y', temp_audio_path
+        ]
+        
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            logger.error(f"❌ Failed to extract audio: {result.stderr}")
+            return False
+        
+        # 生成校正後的字幕
+        srt_path = enhanced_generator.generate_corrected_srt(
+            temp_audio_path,
+            language=None
+        )
+        
+        # 將字幕嵌入視頻
+        base_generator = enhanced_generator.original_generator
+        success = base_generator.embed_subtitles_in_video(
+            input_video_path, srt_path, output_video_path, subtitle_style
+        )
+        
+        # 清理暫存檔案
+        try:
+            os.unlink(temp_audio_path)
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to remove temp audio file: {e}")
+        
+        return success
+        
+    except Exception as e:
+        logger.error(f"❌ Error in enhanced subtitle processing: {e}")
+        return False
+
+async def api_with_edited_script(video_path, pdf_file_path, edited_script, poppler_path, output_audio_dir, output_video_dir, output_text_path, resolution, tts_model, voice, enable_subtitles=False, subtitle_style="default", traditional_chinese=False, enable_subtitle_correction=True, correction_threshold=70):
     """
     API function to process video with pre-edited script content
     Args:
         enable_subtitles: Whether to generate and embed subtitles
         subtitle_style: Style for subtitles ('default', 'yellow', 'white_box', 'custom')
+        enable_subtitle_correction: Whether to enable subtitle correction using reference text
+        correction_threshold: Similarity threshold for subtitle correction (0-100)
     """
     logger.info("🎬 Starting video processing with edited script...")
     
@@ -458,26 +512,77 @@ async def api_with_edited_script(video_path, pdf_file_path, edited_script, poppl
         if enable_subtitles:
             logger.info("🎯 Processing subtitles...")
             logger.info(f"🇹🇼 Traditional Chinese parameter: {traditional_chinese}")
+            logger.info(f"🔧 Subtitle correction enabled: {enable_subtitle_correction}")
             
             if not SUBTITLE_AVAILABLE or WhisperSubtitleGenerator is None:
                 logger.warning("⚠️ Subtitle functionality not available. Skipping subtitle generation.")
                 logger.info("💡 To enable subtitles, install: pip install openai-whisper")
             else:
                 try:
-                    logger.info(f"🏗️ Creating WhisperSubtitleGenerator with traditional_chinese={traditional_chinese}")
-                    subtitle_generator = WhisperSubtitleGenerator(traditional_chinese=traditional_chinese)
+                    # 準備參考文字（用於字幕校正）
+                    reference_texts = []
+                    if enable_subtitle_correction and edited_script:
+                        # 解析編輯後的腳本為頁面文字
+                        try:
+                            if isinstance(edited_script, list):
+                                # 如果已經是列表，直接使用
+                                reference_texts = edited_script
+                            elif isinstance(edited_script, str):
+                                # 如果是字符串，按照## Page N的格式分割
+                                import re
+                                # 分割按頁面
+                                pages = re.split(r'## Page \d+\n', edited_script)
+                                # 移除空字符串並清理內容
+                                reference_texts = [page.strip() for page in pages if page.strip()]
+                            else:
+                                logger.warning(f"⚠️ Unexpected edited_script type: {type(edited_script)}")
+                                reference_texts = []
+                            
+                            logger.info(f"📝 Prepared {len(reference_texts)} reference texts for correction")
+                            for i, text in enumerate(reference_texts[:3]):  # 只記錄前3個作為示例
+                                logger.debug(f"   Reference {i+1}: {text[:50]}...")
+                        except Exception as e:
+                            logger.warning(f"⚠️ Failed to prepare reference texts: {e}")
+                            reference_texts = []
+                    
+                    logger.info(f"🏗️ Creating subtitle generator with traditional_chinese={traditional_chinese}")
+                    
+                    if enable_subtitle_correction and reference_texts and EnhancedWhisperSubtitleGenerator:
+                        # 使用增強版字幕生成器（帶校正功能）
+                        base_generator = WhisperSubtitleGenerator(traditional_chinese=traditional_chinese)
+                        subtitle_generator = EnhancedWhisperSubtitleGenerator(
+                            original_generator=base_generator,
+                            reference_texts=reference_texts,
+                            enable_correction=True,
+                            correction_threshold=correction_threshold
+                        )
+                        logger.info(f"✅ Enhanced subtitle generator with correction enabled (threshold: {correction_threshold}%)")
+                    else:
+                        # 使用原始字幕生成器
+                        subtitle_generator = WhisperSubtitleGenerator(traditional_chinese=traditional_chinese)
+                        logger.info("📝 Using standard subtitle generator (no correction)")
                     
                     # Create temporary video path for subtitle processing
                     temp_video_path = output_video_path.replace('.mp4', '_temp.mp4')
                     os.rename(output_video_path, temp_video_path)
                     
                     # Generate and embed subtitles
-                    success = subtitle_generator.process_video_with_subtitles(
-                        input_video_path=temp_video_path,
-                        output_video_path=output_video_path,
-                        subtitle_style=subtitle_style,
-                        language=None  # Use auto-detection (None instead of "auto")
-                    )
+                    if hasattr(subtitle_generator, 'process_video_with_subtitles'):
+                        # 標準字幕生成器
+                        success = subtitle_generator.process_video_with_subtitles(
+                            input_video_path=temp_video_path,
+                            output_video_path=output_video_path,
+                            subtitle_style=subtitle_style,
+                            language=None  # Use auto-detection
+                        )
+                    else:
+                        # 增強版字幕生成器需要特殊處理
+                        success = await process_video_with_enhanced_subtitles(
+                            subtitle_generator,
+                            temp_video_path,
+                            output_video_path,
+                            subtitle_style
+                        )
                     
                     if success:
                         logger.info("✅ Subtitles added successfully!")
