@@ -7,11 +7,25 @@ import subprocess
 import nest_asyncio
 import warnings
 from tqdm import tqdm
-from moviepy.editor import ImageClip, AudioFileClip, concatenate_videoclips
 import numpy as np
 from pdf2image import convert_from_path
 from PIL import Image
 from dotenv import load_dotenv
+
+# Try to import MoviePy - it's used for video generation but not subtitle processing
+try:
+    from moviepy.editor import ImageClip, AudioFileClip, concatenate_videoclips
+    MOVIEPY_AVAILABLE = True
+    logger = logging.getLogger(__name__)
+    logger.info("✅ MoviePy available for video generation")
+except ImportError as e:
+    MOVIEPY_AVAILABLE = False
+    logger = logging.getLogger(__name__)
+    logger.warning(f"⚠️ MoviePy not available: {e}")
+    # Create dummy classes for type hints
+    ImageClip = None
+    AudioFileClip = None
+    concatenate_videoclips = None
 
 # Suppress audio system warnings for headless environments (like Colab)
 os.environ.setdefault('ALSA_PCM_CARD', '0')
@@ -43,14 +57,14 @@ from utility.api import *
 # Import with error handling for Colab environment
 try:
     from utility.whisper_subtitle import WhisperSubtitleGenerator
-    from utility.simple_hybrid_subtitle_generator import SimpleHybridSubtitleGenerator
+    from utility.improved_hybrid_subtitle_generator import ImprovedHybridSubtitleGenerator
     SUBTITLE_AVAILABLE = True
     logger.info("✅ Subtitle functionality available")
-    logger.info("✅ Simple hybrid subtitle generator available")
+    logger.info("✅ Improved hybrid subtitle generator available")
 except ImportError as e:
     logger.warning(f"⚠️ Subtitle functionality not available: {e}")
     WhisperSubtitleGenerator = None
-    SimpleHybridSubtitleGenerator = None
+    ImprovedHybridSubtitleGenerator = None
     SUBTITLE_AVAILABLE = False
 
 load_dotenv()
@@ -465,7 +479,7 @@ async def api_with_edited_script(video_path, pdf_file_path, edited_script, poppl
             logger.info("🎯 Processing subtitles...")
             logger.info(f"🇹🇼 Traditional Chinese parameter: {traditional_chinese}")
             
-            if not SUBTITLE_AVAILABLE or SimpleHybridSubtitleGenerator is None:
+            if not SUBTITLE_AVAILABLE or ImprovedHybridSubtitleGenerator is None:
                 logger.warning("⚠️ Subtitle functionality not available. Skipping subtitle generation.")
                 logger.info("💡 To enable subtitles, install: pip install openai-whisper")
             else:
@@ -498,8 +512,8 @@ async def api_with_edited_script(video_path, pdf_file_path, edited_script, poppl
                     
                     logger.info(f"🏗️ Creating hybrid subtitle generator with traditional_chinese={traditional_chinese}")
                     
-                    # 使用簡化的混合字幕生成器
-                    hybrid_generator = SimpleHybridSubtitleGenerator(
+                    # 使用改進的混合字幕生成器
+                    hybrid_generator = ImprovedHybridSubtitleGenerator(
                         model_size="small",  # 使用小型模型以節省資源
                         traditional_chinese=traditional_chinese
                     )
