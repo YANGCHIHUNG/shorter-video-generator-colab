@@ -316,7 +316,7 @@ async def api(
     logger.info("✅ Cleanup process completed!")
 
 
-async def api_with_edited_script(video_path, pdf_file_path, edited_script, poppler_path, output_audio_dir, output_video_dir, output_text_path, resolution, tts_model, voice, enable_subtitles=False, subtitle_style="default", traditional_chinese=False):
+async def api_with_edited_script(video_path, pdf_file_path, edited_script, poppler_path, output_audio_dir, output_video_dir, output_text_path, resolution, tts_model, voice, enable_subtitles=False, subtitle_style="default", traditional_chinese=False, subtitle_length_mode="auto"):
     """
     API function to process video with pre-edited script content
     Args:
@@ -512,10 +512,11 @@ async def api_with_edited_script(video_path, pdf_file_path, edited_script, poppl
                     
                     logger.info(f"🏗️ Creating hybrid subtitle generator with traditional_chinese={traditional_chinese}")
                     
-                    # 使用改進的混合字幕生成器
+                    # 使用改進的混合字幕生成器（支援字幕長度控制）
                     hybrid_generator = ImprovedHybridSubtitleGenerator(
                         model_size="small",  # 使用小型模型以節省資源
-                        traditional_chinese=traditional_chinese
+                        traditional_chinese=traditional_chinese,
+                        subtitle_length_mode=subtitle_length_mode  # 字幕長度控制模式
                     )
                     
                     # Create temporary video path for subtitle processing

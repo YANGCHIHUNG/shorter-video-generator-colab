@@ -259,10 +259,6 @@ class ImprovedHybridSubtitleGenerator:
             if i == len(sentences) - 1:
                 segment_end_time = end_time
             
-            # 確保時間不會倒退
-            if segment_end_time <= current_time:
-                segment_end_time = current_time + min_display_time
-            
             # 進一步切分過長的句子（如果單句仍然太長）
             if len(sentence) > max_chars_total:
                 sub_segments = self._force_split_long_sentence(
