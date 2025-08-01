@@ -578,7 +578,7 @@ def pdf_preview(page_num):
                 poppler_path=poppler_path,
                 first_page=page_num,
                 last_page=page_num,
-                dpi=200,  # 調整DPI以獲得合適的圖片質量
+                dpi=300,  # 提高DPI以獲得更好的圖片質量
                 thread_count=1
             )
             
@@ -588,17 +588,23 @@ def pdf_preview(page_num):
             # 將圖片轉換為Base64字符串
             page_image = pages[0]
             
-            # 調整圖片大小以適合預覽（寬度最大300px）
-            max_width = 300
+            # 調整圖片大小以適合預覽（寬度最大800px，保持高畫質）
+            max_width = 800
             aspect_ratio = page_image.height / page_image.width
             new_width = min(max_width, page_image.width)
             new_height = int(new_width * aspect_ratio)
             
-            resized_image = page_image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            # 只有當原圖比目標尺寸大時才縮放，否則保持原尺寸
+            if page_image.width > max_width:
+                resized_image = page_image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            else:
+                resized_image = page_image
+                new_width = page_image.width
+                new_height = page_image.height
             
-            # 轉換為Base64
+            # 轉換為Base64，使用高質量PNG格式
             buffer = io.BytesIO()
-            resized_image.save(buffer, format='PNG')
+            resized_image.save(buffer, format='PNG', optimize=False)
             img_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
             
             return jsonify({
