@@ -15,12 +15,12 @@
     
     .pdf-preview-wrapper:hover {
         transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.2) !important;
         transition: all 0.3s ease;
     }
     
     .pdf-preview-content img {
-        transition: opacity 0.3s ease;
+        transition: all 0.3s ease;
     }
     
     .loading-spinner {
@@ -32,23 +32,53 @@
         to { opacity: 1; }
     }
     
-    /* 響應式設計 */
+    /* 響應式設計 - 優化上下佈局 */
     @media (max-width: 768px) {
-        .card-body > div[style*="display: flex"] {
-            flex-direction: column !important;
+        .pdf-preview-content {
+            min-height: 300px !important;
+            max-height: 400px !important;
         }
         
-        .pdf-preview-container {
-            width: 100% !important;
-            max-width: 100% !important;
-            margin-bottom: 1rem;
+        .pdf-preview-content img {
+            max-height: 350px !important;
         }
         
-        .pdf-preview-wrapper {
-            width: 100% !important;
-            max-width: 300px !important;
-            margin: 0 auto;
+        /* 調整文字區域在小螢幕上的高度 */
+        .page-content {
+            min-height: 200px !important;
         }
+        
+        /* 調整卡片間距 */
+        .card {
+            margin-bottom: 1rem !important;
+        }
+    }
+    
+    @media (max-width: 480px) {
+        .pdf-preview-header {
+            font-size: 12px !important;
+            padding: 8px 12px !important;
+        }
+        
+        .pdf-preview-content {
+            min-height: 250px !important;
+            max-height: 350px !important;
+        }
+        
+        .page-content {
+            font-size: 13px !important;
+        }
+    }
+    
+    /* 載入動畫增強 */
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.5; }
+        100% { opacity: 1; }
+    }
+    
+    .loading-spinner .spinner {
+        animation: spin 1.2s linear infinite, pulse 2s ease-in-out infinite;
     }
 </style>
 
@@ -224,69 +254,115 @@
                     <h3>📄 Page ${index + 1}</h3>
                 </div>
                 <div class="card-body">
-                    <div style="display: flex; gap: 1.5rem; align-items: flex-start;">
-                        <!-- PDF預覽圖片區域 -->
-                        <div class="pdf-preview-container" style="flex-shrink: 0;">
+                    <!-- 上下佈局容器 -->
+                    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                        
+                        <!-- PDF預覽圖片區域 (上方) -->
+                        <div class="pdf-preview-container" style="width: 100%;">
                             <div class="pdf-preview-wrapper" style="
-                                width: 250px; 
-                                max-width: 250px; 
+                                width: 100%; 
+                                max-width: 100%; 
                                 border: 2px solid #e0e0e0; 
-                                border-radius: 8px; 
+                                border-radius: 12px; 
                                 overflow: hidden;
                                 background: #f9f9f9;
-                                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                                box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                                transition: all 0.3s ease;
                             ">
                                 <div class="pdf-preview-header" style="
-                                    background: #f0f0f0; 
-                                    padding: 8px 12px; 
-                                    font-size: 12px; 
-                                    color: #666; 
-                                    border-bottom: 1px solid #e0e0e0;
+                                    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); 
+                                    padding: 12px 16px; 
+                                    font-size: 14px; 
+                                    font-weight: 600;
+                                    color: #495057; 
+                                    border-bottom: 2px solid #e0e0e0;
                                     text-align: center;
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: center;
+                                    gap: 8px;
                                 ">
-                                    PDF Preview
+                                    <span style="font-size: 16px;">📄</span>
+                                    PDF Preview - Page ${index + 1}
                                 </div>
                                 <div class="pdf-preview-content" style="
-                                    padding: 10px; 
+                                    padding: 20px; 
                                     text-align: center; 
-                                    min-height: 200px; 
+                                    min-height: 400px; 
+                                    max-height: 600px;
                                     display: flex; 
                                     align-items: center; 
                                     justify-content: center;
+                                    background: #ffffff;
+                                    overflow: hidden;
                                 " id="preview-${index}">
                                     <div class="loading-spinner" style="
-                                        color: #999; 
-                                        font-size: 14px;
+                                        color: #6c757d; 
+                                        font-size: 16px;
                                         display: flex;
                                         flex-direction: column;
                                         align-items: center;
-                                        gap: 10px;
+                                        gap: 15px;
                                     ">
                                         <div class="spinner" style="
-                                            width: 20px; 
-                                            height: 20px; 
-                                            border: 2px solid #f3f3f3; 
-                                            border-top: 2px solid #007bff; 
+                                            width: 32px; 
+                                            height: 32px; 
+                                            border: 3px solid #f3f3f3; 
+                                            border-top: 3px solid #007bff; 
                                             border-radius: 50%; 
-                                            animation: spin 1s linear infinite;
+                                            animation: spin 1.2s linear infinite;
                                         "></div>
-                                        Loading preview...
+                                        <div style="font-weight: 500;">Loading PDF preview...</div>
+                                        <div style="font-size: 12px; color: #999;">Please wait while we generate the preview</div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                         
-                        <!-- 文字編輯區域 -->
-                        <div style="flex: 1; min-width: 0;">
+                        <!-- 文字編輯區域 (下方) -->
+                        <div style="width: 100%;">
+                            <div style="margin-bottom: 8px;">
+                                <label style="
+                                    font-weight: 600; 
+                                    color: #495057; 
+                                    font-size: 14px;
+                                    display: flex;
+                                    align-items: center;
+                                    gap: 6px;
+                                ">
+                                    <span style="font-size: 16px;">✏️</span>
+                                    Edit Text Content
+                                </label>
+                            </div>
                             <textarea 
                                 class="form-input page-content" 
-                                rows="12" 
+                                rows="10" 
                                 placeholder="Enter content for page ${index + 1}..."
-                                style="resize: vertical; min-height: 300px; width: 100%;"
+                                style="
+                                    resize: vertical; 
+                                    min-height: 250px; 
+                                    width: 100%;
+                                    border-radius: 8px;
+                                    border: 2px solid #e0e0e0;
+                                    padding: 16px;
+                                    font-size: 14px;
+                                    line-height: 1.6;
+                                    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+                                "
                                 oninput="updatePage(${index}, this.value)"
+                                onfocus="this.style.borderColor='#007bff'; this.style.boxShadow='0 0 0 3px rgba(0,123,255,0.1)'"
+                                onblur="this.style.borderColor='#e0e0e0'; this.style.boxShadow='none'"
                             >${page}</textarea>
-                            <div class="form-help">
+                            <div class="form-help" style="
+                                margin-top: 8px;
+                                display: flex;
+                                justify-content: space-between;
+                                align-items: center;
+                                font-size: 12px;
+                                color: #6c757d;
+                            ">
                                 <span class="character-count">Characters: ${page.length}</span>
+                                <span style="color: #999;">💡 Tip: You can resize the text area by dragging the corner</span>
                             </div>
                         </div>
                     </div>
@@ -318,30 +394,69 @@
             .then(data => {
                 if (data.success) {
                     previewContainer.innerHTML = `
-                        <img src="${data.image}" 
-                             alt="PDF Page ${pageNum}" 
-                             style="
-                                 max-width: 100%; 
-                                 max-height: 400px; 
-                                 border-radius: 4px;
-                                 box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-                             "
-                             title="PDF Page ${pageNum} Preview"
-                        />
+                        <div style="
+                            width: 100%;
+                            display: flex;
+                            justify-content: center;
+                            align-items: center;
+                            padding: 10px;
+                        ">
+                            <img src="${data.image}" 
+                                 alt="PDF Page ${pageNum}" 
+                                 style="
+                                     max-width: 100%; 
+                                     max-height: 550px; 
+                                     height: auto;
+                                     border-radius: 8px;
+                                     box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+                                     transition: transform 0.3s ease, box-shadow 0.3s ease;
+                                     cursor: pointer;
+                                 "
+                                 title="PDF Page ${pageNum} Preview - Click to zoom"
+                                 onclick="zoomPdfPreview(this)"
+                                 onmouseover="this.style.transform='scale(1.02)'; this.style.boxShadow='0 6px 25px rgba(0,0,0,0.2)'"
+                                 onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 4px 20px rgba(0,0,0,0.15)'"
+                            />
+                        </div>
                     `;
                 } else {
                     previewContainer.innerHTML = `
                         <div style="
                             color: #dc3545; 
-                            font-size: 14px;
+                            font-size: 16px;
                             text-align: center;
-                            padding: 20px;
+                            padding: 40px 20px;
+                            display: flex;
+                            flex-direction: column;
+                            align-items: center;
+                            gap: 12px;
                         ">
-                            <div style="font-size: 24px; margin-bottom: 8px;">📄</div>
-                            <div>Preview unavailable</div>
-                            <div style="font-size: 12px; color: #999; margin-top: 4px;">
-                                ${data.error || 'Unknown error'}
+                            <div style="
+                                font-size: 48px; 
+                                opacity: 0.7;
+                                margin-bottom: 8px;
+                            ">📄</div>
+                            <div style="font-weight: 600;">Preview Unavailable</div>
+                            <div style="
+                                font-size: 14px; 
+                                color: #6c757d; 
+                                max-width: 300px;
+                                line-height: 1.4;
+                            ">
+                                ${data.error || 'Unable to generate preview for this page'}
                             </div>
+                            <button onclick="loadPdfPreview(${pageNum}, ${index})" style="
+                                margin-top: 8px;
+                                padding: 8px 16px;
+                                background: #007bff;
+                                color: white;
+                                border: none;
+                                border-radius: 4px;
+                                cursor: pointer;
+                                font-size: 12px;
+                            ">
+                                🔄 Retry
+                            </button>
                         </div>
                     `;
                 }
@@ -351,18 +466,156 @@
                 previewContainer.innerHTML = `
                     <div style="
                         color: #dc3545; 
-                        font-size: 14px;
+                        font-size: 16px;
                         text-align: center;
-                        padding: 20px;
+                        padding: 40px 20px;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        gap: 12px;
                     ">
-                        <div style="font-size: 24px; margin-bottom: 8px;">⚠️</div>
-                        <div>Failed to load preview</div>
-                        <div style="font-size: 12px; color: #999; margin-top: 4px;">
-                            Network error
+                        <div style="
+                            font-size: 48px; 
+                            opacity: 0.7;
+                            margin-bottom: 8px;
+                        ">⚠️</div>
+                        <div style="font-weight: 600;">Failed to Load Preview</div>
+                        <div style="
+                            font-size: 14px; 
+                            color: #6c757d; 
+                            max-width: 300px;
+                            line-height: 1.4;
+                        ">
+                            Network error occurred while loading the preview
                         </div>
+                        <button onclick="loadPdfPreview(${pageNum}, ${index})" style="
+                            margin-top: 8px;
+                            padding: 8px 16px;
+                            background: #28a745;
+                            color: white;
+                            border: none;
+                            border-radius: 4px;
+                            cursor: pointer;
+                            font-size: 12px;
+                        ">
+                            🔄 Try Again
+                        </button>
                     </div>
                 `;
             });
+    }
+
+    // PDF預覽放大功能
+    function zoomPdfPreview(imgElement) {
+        // 創建全屏覆蓋層
+        const overlay = document.createElement('div');
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        `;
+        
+        // 創建放大的圖片
+        const zoomedImg = document.createElement('img');
+        zoomedImg.src = imgElement.src;
+        zoomedImg.alt = imgElement.alt;
+        zoomedImg.style.cssText = `
+            max-width: 95%;
+            max-height: 95%;
+            border-radius: 8px;
+            box-shadow: 0 10px 50px rgba(255,255,255,0.1);
+            transform: scale(0.8);
+            transition: transform 0.3s ease;
+        `;
+        
+        // 添加關閉按鈕
+        const closeBtn = document.createElement('div');
+        closeBtn.innerHTML = '✕';
+        closeBtn.style.cssText = `
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            color: white;
+            font-size: 30px;
+            font-weight: bold;
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            transition: background 0.3s ease;
+        `;
+        
+        closeBtn.onmouseover = () => closeBtn.style.background = 'rgba(255,255,255,0.3)';
+        closeBtn.onmouseout = () => closeBtn.style.background = 'rgba(255,255,255,0.2)';
+        
+        // 添加頁面信息
+        const pageInfo = document.createElement('div');
+        pageInfo.innerHTML = imgElement.alt;
+        pageInfo.style.cssText = `
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            font-size: 16px;
+            background: rgba(0,0,0,0.7);
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-weight: 500;
+        `;
+        
+        overlay.appendChild(zoomedImg);
+        overlay.appendChild(closeBtn);
+        overlay.appendChild(pageInfo);
+        
+        // 關閉功能
+        const closeZoom = () => {
+            overlay.style.opacity = '0';
+            zoomedImg.style.transform = 'scale(0.8)';
+            setTimeout(() => {
+                document.body.removeChild(overlay);
+                document.body.style.overflow = 'auto';
+            }, 300);
+        };
+        
+        overlay.onclick = closeZoom;
+        closeBtn.onclick = closeZoom;
+        
+        // 防止圖片點擊時關閉
+        zoomedImg.onclick = (e) => e.stopPropagation();
+        
+        // ESC鍵關閉
+        const handleEscape = (e) => {
+            if (e.key === 'Escape') {
+                closeZoom();
+                document.removeEventListener('keydown', handleEscape);
+            }
+        };
+        document.addEventListener('keydown', handleEscape);
+        
+        // 添加到頁面並顯示動畫
+        document.body.appendChild(overlay);
+        document.body.style.overflow = 'hidden';
+        
+        // 觸發動畫
+        setTimeout(() => {
+            overlay.style.opacity = '1';
+            zoomedImg.style.transform = 'scale(1)';
+        }, 10);
     }
 
     // Form submission
