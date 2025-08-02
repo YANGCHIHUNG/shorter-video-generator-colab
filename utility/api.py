@@ -101,13 +101,9 @@ def gemini_chat(text_array=None, script=None, clients=None, keys=None, max_retri
                 response = client.models.generate_content(
                     model="gemini-2.0-flash",
                     contents=f'''以下是我們的完整講稿：{script}  
-                    以下是第 {count} 張 Ptt 內容，前面幾張已經處理完畢：{text}  
+                    以下是簡報內容：{text}  
                     請仔細閱讀上述資料，並從中萃取與此張投影片直接相關的重點，生成一段針對該投影片的講稿。  
-                    要求如下：  
-                    1. 假裝你是講者，用人類的方式講話，不要囉唆與投影片無關的資訊。  
-                    2. 回應內容必須嚴格限定在該投影片範圍內，不得擴展到其他部分，不能講 "好的" ... 避免讓人發現此為 AI 產生。  
-                    3. 避免提到會多久講完。
-                    4. 不要念一些無意義的東西例如：連結: https://www.ptt.cc/bbs/Beauty/M.1700000000.A.123.html'''
+                '''
                 )
                 response_array_of_text.append(remove_markdown(response.text))
                 count += 1
