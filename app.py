@@ -46,6 +46,53 @@ def setup_logging():
 # 初始化日誌
 app_logger = setup_logging()
 
+# ✅ 字體支援檢查和安裝
+def ensure_chinese_font_support():
+    """確保系統支援中文字體"""
+    import platform
+    import subprocess
+    
+    try:
+        system = platform.system().lower()
+        app_logger.info(f"🔤 檢查字體支援，系統: {system}")
+        
+        if system == "linux":
+            # 在Linux系統中檢查和安裝中文字體
+            font_paths = [
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+                "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"
+            ]
+            
+            fonts_found = [path for path in font_paths if os.path.exists(path)]
+            
+            if fonts_found:
+                app_logger.info(f"✅ 找到中文字體支援: {fonts_found[0]}")
+                return True
+            else:
+                app_logger.warning("⚠️ 未找到中文字體，嘗試安裝...")
+                try:
+                    # 嘗試安裝字體
+                    subprocess.run(['apt-get', 'update'], check=False, capture_output=True)
+                    subprocess.run(['apt-get', 'install', '-y', 'fonts-noto-cjk'], check=False, capture_output=True)
+                    subprocess.run(['fc-cache', '-f', '-v'], check=False, capture_output=True)
+                    app_logger.info("✅ 嘗試安裝中文字體完成")
+                    return True
+                except Exception as e:
+                    app_logger.warning(f"⚠️ 字體安裝失敗: {e}")
+                    return False
+        else:
+            # Windows/macOS 通常有基本字體支援
+            app_logger.info("✅ 非Linux系統，假設有字體支援")
+            return True
+            
+    except Exception as e:
+        app_logger.error(f"❌ 字體檢查失敗: {e}")
+        return False
+
+# 啟動時檢查字體支援
+ensure_chinese_font_support()
+
 # ✅ Suppress warnings and error messages
 warnings.filterwarnings("ignore")
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # Suppress TensorFlow warnings

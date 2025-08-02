@@ -102,7 +102,7 @@ def gemini_chat(text_array=None, script=None, clients=None, keys=None, max_retri
                     model="gemini-2.0-flash",
                     contents=f'''以下是我們的完整講稿：{script}  
                     以下是簡報內容：{text}  
-                    請仔細閱讀上述資料，並從中萃取與此張投影片直接相關的重點，生成一段針對該投影片的講稿。  
+                    請仔細閱讀上述資料，並從中萃取直接相關的重點，生成一段針對該投影片的講稿。  
                 '''
                 )
                 response_array_of_text.append(remove_markdown(response.text))

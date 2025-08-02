@@ -540,28 +540,79 @@ class ImprovedHybridSubtitleGenerator:
         try:
             logger.info(f"🎬 開始嵌入字幕: {input_video_path}")
             
-            # 字幕樣式配置
-            style_configs = {
-                "default": "force_style='FontName=Microsoft YaHei,FontSize=24,PrimaryColour=&Hffffff,SecondaryColour=&Hffffff,OutlineColour=&H0,BackColour=&H80000000,Bold=1,Italic=0,Underline=0,StrikeOut=0,ScaleX=100,ScaleY=100,Spacing=0,Angle=0,BorderStyle=1,Outline=2,Shadow=0,Alignment=2,MarginL=10,MarginR=10,MarginV=10'",
-                "yellow": "force_style='FontName=Microsoft YaHei,FontSize=24,PrimaryColour=&H00ffff,SecondaryColour=&H00ffff,OutlineColour=&H0,BackColour=&H80000000,Bold=1,Italic=0,Underline=0,StrikeOut=0,ScaleX=100,ScaleY=100,Spacing=0,Angle=0,BorderStyle=1,Outline=2,Shadow=0,Alignment=2,MarginL=10,MarginR=10,MarginV=10'",
-                "white_box": "force_style='FontName=Microsoft YaHei,FontSize=24,PrimaryColour=&Hffffff,SecondaryColour=&Hffffff,OutlineColour=&H0,BackColour=&H80000000,Bold=1,Italic=0,Underline=0,StrikeOut=0,ScaleX=100,ScaleY=100,Spacing=0,Angle=0,BorderStyle=3,Outline=1,Shadow=0,Alignment=2,MarginL=10,MarginR=10,MarginV=10'"
-            }
+            # 檢測系統並選擇合適的字體
+            def get_available_chinese_font():
+                """獲取可用的中文字體"""
+                import platform
+                system = platform.system().lower()
+                
+                # 常見的中文字體路徑
+                font_paths = []
+                
+                if system == "linux":
+                    # Linux 系統常見的中文字體路徑
+                    font_paths = [
+                        "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+                        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+                        "/usr/share/fonts/truetype/arphic/ukai.ttc",
+                        "/usr/share/fonts/truetype/arphic/uming.ttc",
+                        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+                        "/System/Library/Fonts/Arial.ttf",  # 有些Linux系統有這個
+                    ]
+                    # 字體名稱替代（如果找不到檔案）
+                    font_names = [
+                        "Noto Sans CJK SC",
+                        "Noto Sans CJK TC", 
+                        "AR PL UKai CN",
+                        "AR PL UMing CN",
+                        "DejaVu Sans",
+                        "Liberation Sans",
+                        "Arial"
+                    ]
+                elif system == "darwin":  # macOS
+                    font_paths = [
+                        "/System/Library/Fonts/PingFang.ttc",
+                        "/Library/Fonts/Arial Unicode MS.ttf",
+                        "/System/Library/Fonts/Arial.ttf"
+                    ]
+                else:  # Windows
+                    font_paths = [
+                        "C:/Windows/Fonts/msyh.ttc",  # Microsoft YaHei
+                        "C:/Windows/Fonts/simhei.ttf",  # SimHei
+                        "C:/Windows/Fonts/simsun.ttc",  # SimSun
+                        "C:/Windows/Fonts/arial.ttf"
+                    ]
+                    font_names = [
+                        "Microsoft YaHei",
+                        "SimHei",
+                        "SimSun",
+                        "Arial"
+                    ]
+                
+                # 首先檢查字體檔案是否存在
+                for i, font_path in enumerate(font_paths):
+                    if os.path.exists(font_path):
+                        logger.info(f"✅ 找到可用字體檔案: {font_path}")
+                        return font_path
+                
+                # 如果沒有找到字體檔案，嘗試使用字體名稱
+                logger.warning("⚠️ 未找到字體檔案，嘗試使用字體名稱")
+                if system == "linux":
+                    return font_names[0] if font_names else "DejaVu Sans"
+                elif system == "darwin":
+                    return "Arial"
+                else:
+                    return font_names[0] if font_names else "Arial"
             
-            style_option = style_configs.get(style, style_configs["default"])
+            # 獲取可用字體
+            font_name = get_available_chinese_font()
+            logger.info(f"🔤 使用字體: {font_name}")
             
             # 正規化路徑並處理Windows路徑分隔符問題
             normalized_srt_path = srt_path.replace('\\', '/').replace(':', '\\:')
             
-            cmd = [
-                'ffmpeg',
-                '-i', input_video_path,
-                '-vf', f"subtitles='{normalized_srt_path}':{style_option}",
-                '-c:a', 'copy',
-                '-y', output_video_path
-            ]
-            
-            logger.info(f"🔧 執行 FFmpeg 命令嵌入字幕")
-            logger.info(f"📋 FFmpeg 命令: {' '.join(cmd)}")
+            # 檢查檔案狀態
             logger.info(f"📁 輸入視頻: {input_video_path} (存在: {os.path.exists(input_video_path)})")
             logger.info(f"📁 字幕檔案: {srt_path} (存在: {os.path.exists(srt_path)})")
             logger.info(f"📁 輸出路徑: {output_video_path}")
@@ -581,19 +632,65 @@ class ImprovedHybridSubtitleGenerator:
                     logger.error(f"❌ 無法讀取SRT檔案: {e}")
                     return False
             
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)  # 5分鐘超時
-            
-            logger.info(f"🔧 FFmpeg 執行完畢 - 返回碼: {result.returncode}")
-            if result.stdout:
-                logger.info(f"📝 FFmpeg 標準輸出: {result.stdout}")
-            if result.stderr:
-                logger.warning(f"⚠️ FFmpeg 標準錯誤: {result.stderr}")
-            
-            if result.returncode != 0:
-                logger.error(f"❌ FFmpeg 嵌入字幕失敗: {result.stderr}")
+            # 嘗試不同的字幕嵌入方法
+            def try_subtitle_methods():
+                methods = []
                 
-                # 嘗試使用簡化的命令作為回退選項
-                logger.info("🔄 嘗試使用簡化的FFmpeg命令...")
+                # 方法1: 使用動態字體的完整樣式
+                if font_name and not font_name.startswith("/"):  # 字體名稱而非路徑
+                    style_with_font = f"force_style='FontName={font_name},FontSize=24,PrimaryColour=&Hffffff,SecondaryColour=&Hffffff,OutlineColour=&H0,BackColour=&H80000000,Bold=1,Italic=0,Underline=0,StrikeOut=0,ScaleX=100,ScaleY=100,Spacing=0,Angle=0,BorderStyle=1,Outline=2,Shadow=0,Alignment=2,MarginL=10,MarginR=10,MarginV=10'"
+                    methods.append(("完整樣式", f"subtitles='{normalized_srt_path}':{style_with_font}"))
+                
+                # 方法2: 簡化樣式
+                simple_style = "force_style='FontSize=24,PrimaryColour=&Hffffff,OutlineColour=&H0,Bold=1,Outline=2,Alignment=2'"
+                methods.append(("簡化樣式", f"subtitles='{normalized_srt_path}':{simple_style}"))
+                
+                # 方法3: 最基本的字幕
+                methods.append(("基本字幕", f"subtitles='{normalized_srt_path}'"))
+                
+                return methods
+            
+            # 嘗試不同的字幕方法
+            subtitle_methods = try_subtitle_methods()
+            result = None
+            
+            for method_name, vf_option in subtitle_methods:
+                logger.info(f"🎬 嘗試{method_name}方法...")
+                
+                cmd = [
+                    'ffmpeg',
+                    '-i', input_video_path,
+                    '-vf', vf_option,
+                    '-c:a', 'copy',
+                    '-y', output_video_path
+                ]
+                
+                logger.info(f"📋 FFmpeg 命令: {' '.join(cmd)}")
+                
+                try:
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+                    logger.info(f"� {method_name} 執行完畢 - 返回碼: {result.returncode}")
+                    
+                    if result.returncode == 0:
+                        logger.info(f"✅ {method_name} 成功!")
+                        break
+                    else:
+                        logger.warning(f"⚠️ {method_name} 失敗: {result.stderr}")
+                        # 檢查是否是字體相關錯誤
+                        if "fontselect" not in result.stderr and "Glyph" not in result.stderr:
+                            # 非字體錯誤，停止嘗試其他方法
+                            break
+                        
+                except subprocess.TimeoutExpired:
+                    logger.error(f"❌ {method_name} 執行超時")
+                    continue
+                except Exception as e:
+                    logger.error(f"❌ {method_name} 執行異常: {e}")
+                    continue
+            
+            # 如果所有字幕嵌入方法都失敗，最後嘗試外部字幕
+            if not result or result.returncode != 0:
+                logger.info("🔄 所有字幕嵌入方法失敗，嘗試外部字幕作為最後手段...")
                 fallback_cmd = [
                     'ffmpeg',
                     '-i', input_video_path,
@@ -603,20 +700,22 @@ class ImprovedHybridSubtitleGenerator:
                     '-y', output_video_path
                 ]
                 
-                logger.info(f"📋 回退FFmpeg命令: {' '.join(fallback_cmd)}")
-                fallback_result = subprocess.run(fallback_cmd, capture_output=True, text=True, timeout=300)
-                
-                logger.info(f"🔧 回退FFmpeg執行完畢 - 返回碼: {fallback_result.returncode}")
-                if fallback_result.stdout:
-                    logger.info(f"📝 回退FFmpeg標準輸出: {fallback_result.stdout}")
-                if fallback_result.stderr:
-                    logger.warning(f"⚠️ 回退FFmpeg標準錯誤: {fallback_result.stderr}")
-                
-                if fallback_result.returncode != 0:
-                    logger.error(f"❌ 回退FFmpeg命令也失敗了")
+                logger.info(f"📋 外部字幕命令: {' '.join(fallback_cmd)}")
+                try:
+                    result = subprocess.run(fallback_cmd, capture_output=True, text=True, timeout=300)
+                    logger.info(f"🔧 外部字幕執行完畢 - 返回碼: {result.returncode}")
+                    if result.stdout:
+                        logger.info(f"📝 外部字幕標準輸出: {result.stdout}")
+                    if result.stderr:
+                        logger.warning(f"⚠️ 外部字幕標準錯誤: {result.stderr}")
+                except Exception as e:
+                    logger.error(f"❌ 外部字幕執行異常: {e}")
                     return False
-                
-                result = fallback_result
+            
+            # 最終檢查
+            if not result or result.returncode != 0:
+                logger.error("❌ 所有字幕嵌入方法都失敗了")
+                return False
             
             # 檢查輸出檔案是否真的存在
             if not os.path.exists(output_video_path):
