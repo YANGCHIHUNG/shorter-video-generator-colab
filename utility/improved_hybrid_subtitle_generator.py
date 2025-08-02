@@ -638,7 +638,7 @@ class ImprovedHybridSubtitleGenerator:
             return []
         
         # 中文標點符號列表
-        sentence_endings = ['。', '！', '？', '；', '…', '.', '!', '?', ';']
+        sentence_endings = ['。', '！', '？', '；', '…', '!', '?', ';']
         
         sentences = []
         current_sentence = ""
