@@ -549,25 +549,87 @@ class ImprovedHybridSubtitleGenerator:
             
             style_option = style_configs.get(style, style_configs["default"])
             
+            # 正規化路徑並處理Windows路徑分隔符問題
+            normalized_srt_path = srt_path.replace('\\', '/').replace(':', '\\:')
+            
             cmd = [
                 'ffmpeg',
                 '-i', input_video_path,
-                '-vf', f"subtitles={srt_path}:{style_option}",
+                '-vf', f"subtitles='{normalized_srt_path}':{style_option}",
                 '-c:a', 'copy',
                 '-y', output_video_path
             ]
             
             logger.info(f"🔧 執行 FFmpeg 命令嵌入字幕")
+            logger.info(f"📋 FFmpeg 命令: {' '.join(cmd)}")
+            logger.info(f"📁 輸入視頻: {input_video_path} (存在: {os.path.exists(input_video_path)})")
+            logger.info(f"📁 字幕檔案: {srt_path} (存在: {os.path.exists(srt_path)})")
+            logger.info(f"📁 輸出路徑: {output_video_path}")
             
-            result = subprocess.run(cmd, capture_output=True, text=True)
+            # 檢查SRT檔案內容
+            if os.path.exists(srt_path):
+                try:
+                    with open(srt_path, 'r', encoding='utf-8') as f:
+                        srt_content = f.read()
+                        srt_lines = srt_content.strip().split('\n')
+                        logger.info(f"📝 SRT檔案行數: {len(srt_lines)}")
+                        logger.info(f"📝 SRT檔案前5行: {srt_lines[:5]}")
+                        if len(srt_content) == 0:
+                            logger.error("❌ SRT檔案為空")
+                            return False
+                except Exception as e:
+                    logger.error(f"❌ 無法讀取SRT檔案: {e}")
+                    return False
+            
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)  # 5分鐘超時
+            
+            logger.info(f"🔧 FFmpeg 執行完畢 - 返回碼: {result.returncode}")
+            if result.stdout:
+                logger.info(f"📝 FFmpeg 標準輸出: {result.stdout}")
+            if result.stderr:
+                logger.warning(f"⚠️ FFmpeg 標準錯誤: {result.stderr}")
             
             if result.returncode != 0:
                 logger.error(f"❌ FFmpeg 嵌入字幕失敗: {result.stderr}")
+                
+                # 嘗試使用簡化的命令作為回退選項
+                logger.info("🔄 嘗試使用簡化的FFmpeg命令...")
+                fallback_cmd = [
+                    'ffmpeg',
+                    '-i', input_video_path,
+                    '-i', srt_path,
+                    '-c', 'copy',
+                    '-c:s', 'mov_text',
+                    '-y', output_video_path
+                ]
+                
+                logger.info(f"📋 回退FFmpeg命令: {' '.join(fallback_cmd)}")
+                fallback_result = subprocess.run(fallback_cmd, capture_output=True, text=True, timeout=300)
+                
+                logger.info(f"🔧 回退FFmpeg執行完畢 - 返回碼: {fallback_result.returncode}")
+                if fallback_result.stdout:
+                    logger.info(f"📝 回退FFmpeg標準輸出: {fallback_result.stdout}")
+                if fallback_result.stderr:
+                    logger.warning(f"⚠️ 回退FFmpeg標準錯誤: {fallback_result.stderr}")
+                
+                if fallback_result.returncode != 0:
+                    logger.error(f"❌ 回退FFmpeg命令也失敗了")
+                    return False
+                
+                result = fallback_result
+            
+            # 檢查輸出檔案是否真的存在
+            if not os.path.exists(output_video_path):
+                logger.error(f"❌ 輸出視頻檔案不存在: {output_video_path}")
                 return False
             
-            logger.info(f"✅ 字幕嵌入完成: {output_video_path}")
+            output_size = os.path.getsize(output_video_path)
+            logger.info(f"✅ 字幕嵌入完成: {output_video_path} (大小: {output_size/1024/1024:.2f} MB)")
             return True
             
+        except subprocess.TimeoutExpired:
+            logger.error("❌ FFmpeg 執行超時 (5分鐘)")
+            return False
         except Exception as e:
             logger.error(f"❌ 字幕嵌入失敗: {e}")
             return False
