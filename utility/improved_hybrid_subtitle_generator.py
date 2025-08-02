@@ -503,7 +503,11 @@ class ImprovedHybridSubtitleGenerator:
     
     def _simple_map_user_text_to_timeline(self, whisper_segments: List[Dict], reference_texts) -> List[Dict]:
         """
-        簡單映射用戶文字到時間軸 - 使用Whisper時間戳，但替換為用戶文字
+        精確映射：利用標點符號切割，將Whisper句子一對一替換為用戶文字
+        
+        流程：
+        A. 用戶輸入文字 → B. Whisper語音識別 → C. 獲取時間戳 → 
+        D. 利用標點符號切割句子，一對一替換 → E. 生成SRT → F. 嵌入視頻
         """
         mapped_segments = []
         
@@ -515,89 +519,148 @@ class ImprovedHybridSubtitleGenerator:
         if isinstance(reference_texts, str):
             reference_texts = [reference_texts]
         
-        logger.info(f"🧠 開始映射：{len(reference_texts)} 個用戶文字 → {len(whisper_segments)} 個 Whisper 片段")
+        logger.info(f"🧠 開始精確映射：{len(reference_texts)} 個用戶文字 → {len(whisper_segments)} 個 Whisper 片段")
         
-        # 準備用戶文字（不進行任何修正）
-        all_user_texts = []
+        # 第一步：將所有用戶文字按標點符號切割成句子
+        all_user_sentences = []
         for page_index, page_text in enumerate(reference_texts):
             if page_text and page_text.strip():
-                # 將每頁文字分割成句子
-                sentences = self._smart_split_text_into_sentences(page_text.strip())
+                sentences = self._split_sentences_by_punctuation(page_text.strip())
                 for sentence in sentences:
                     if sentence.strip():
-                        all_user_texts.append({
+                        all_user_sentences.append({
                             'text': sentence.strip(),
                             'page_index': page_index + 1
                         })
         
-        logger.info(f"📝 總共分割出 {len(all_user_texts)} 個句子")
+        logger.info(f"📝 用戶文字切割結果: {len(all_user_sentences)} 個句子")
+        for i, sentence in enumerate(all_user_sentences):
+            logger.info(f"  用戶句子 {i+1}: '{sentence['text'][:30]}...'")
         
-        if not all_user_texts:
-            logger.error("❌ 沒有有效的用戶文字")
-            return mapped_segments
-        
-        # 策略：直接使用 Whisper 的時間戳，用用戶文字替換內容
-        # 如果用戶文字片段數量與 Whisper 片段不同，進行智能映射
-        
-        if len(all_user_texts) <= len(whisper_segments):
-            # 用戶文字較少或相等：每個用戶文字對應一個或多個 Whisper 片段
-            logger.info("� 用戶文字數量 ≤ Whisper片段數，使用直接映射")
+        # 第二步：將所有Whisper片段也按標點符號切割
+        all_whisper_sentences = []
+        for whisper_seg in whisper_segments:
+            whisper_text = whisper_seg['text'].strip()
+            # 檢查Whisper片段是否包含標點符號，如果包含則切割
+            sentences = self._split_sentences_by_punctuation(whisper_text)
             
-            for i, user_text_info in enumerate(all_user_texts):
-                if i < len(whisper_segments):
-                    whisper_seg = whisper_segments[i]
-                    text = user_text_info['text']
-                    
-                    # 應用繁簡轉換（如果需要）
-                    final_text = self._convert_chinese(text)
-                    
-                    mapped_segments.append({
-                        "start": whisper_seg['start'],
-                        "end": whisper_seg['end'],
-                        "text": final_text,
-                        "source": "user_input",
-                        "page_index": user_text_info['page_index'],
-                        "original_whisper": whisper_seg['text']  # 保留原始Whisper文字以供調試
-                    })
-                    
-                    logger.info(f"  📝 片段 {i+1}: {whisper_seg['start']:.2f}s-{whisper_seg['end']:.2f}s, 頁{user_text_info['page_index']}, '{text[:20]}...'")
+            if len(sentences) <= 1:
+                # 沒有標點符號，整段作為一個句子
+                all_whisper_sentences.append({
+                    'text': whisper_text,
+                    'start': whisper_seg['start'],
+                    'end': whisper_seg['end'],
+                    'original_segment': whisper_seg
+                })
+            else:
+                # 有標點符號，按句子切割並按比例分配時間
+                total_duration = whisper_seg['end'] - whisper_seg['start']
+                sentence_count = len(sentences)
+                time_per_sentence = total_duration / sentence_count
+                
+                for j, sentence in enumerate(sentences):
+                    if sentence.strip():
+                        start_time = whisper_seg['start'] + (j * time_per_sentence)
+                        end_time = whisper_seg['start'] + ((j + 1) * time_per_sentence)
+                        
+                        all_whisper_sentences.append({
+                            'text': sentence.strip(),
+                            'start': start_time,
+                            'end': end_time,
+                            'original_segment': whisper_seg
+                        })
         
-        else:
-            # 用戶文字較多：需要將多個用戶文字片段映射到 Whisper 時間範圍
-            logger.info("📊 用戶文字數量 > Whisper片段數，使用比例映射")
+        logger.info(f"🎙️ Whisper文字切割結果: {len(all_whisper_sentences)} 個句子")
+        for i, sentence in enumerate(all_whisper_sentences):
+            logger.info(f"  Whisper句子 {i+1}: {sentence['start']:.2f}s-{sentence['end']:.2f}s: '{sentence['text'][:30]}...'")
+        
+        # 第三步：一對一替換 - 使用Whisper的時間戳 + 用戶的文字
+        mapping_count = min(len(all_user_sentences), len(all_whisper_sentences))
+        logger.info(f"🔄 執行一對一映射，共 {mapping_count} 對")
+        
+        for i in range(mapping_count):
+            user_sentence = all_user_sentences[i]
+            whisper_sentence = all_whisper_sentences[i]
             
-            total_whisper_duration = whisper_segments[-1]['end'] - whisper_segments[0]['start']
+            # 使用Whisper的精確時間戳 + 用戶的文字內容
+            final_text = self._convert_chinese(user_sentence['text'])
             
-            for i, user_text_info in enumerate(all_user_texts):
-                text = user_text_info['text']
-                
-                # 計算這個用戶文字在整體中的比例位置
-                start_ratio = i / len(all_user_texts)
-                end_ratio = (i + 1) / len(all_user_texts)
-                
-                # 根據比例計算在 Whisper 時間軸中的位置
-                start_time = whisper_segments[0]['start'] + start_ratio * total_whisper_duration
-                end_time = whisper_segments[0]['start'] + end_ratio * total_whisper_duration
-                
-                # 確保不超過最後一個 Whisper 片段的結束時間
-                end_time = min(end_time, whisper_segments[-1]['end'])
-                
-                # 應用繁簡轉換（如果需要）
-                final_text = self._convert_chinese(text)
+            mapped_segments.append({
+                "start": whisper_sentence['start'],      # ✅ 使用Whisper時間戳
+                "end": whisper_sentence['end'],          # ✅ 使用Whisper時間戳
+                "text": final_text,                      # ✅ 使用用戶文字
+                "source": "one_to_one_replacement",      # 標記為一對一替換
+                "page_index": user_sentence['page_index'],
+                "original_whisper": whisper_sentence['text']  # 保留原始Whisper文字供調試
+            })
+            
+            logger.info(f"  📝 映射 {i+1}: {whisper_sentence['start']:.2f}s-{whisper_sentence['end']:.2f}s")
+            logger.info(f"    原Whisper: '{whisper_sentence['text'][:25]}...'")
+            logger.info(f"    替換用戶: '{final_text[:25]}...'")
+        
+        # 處理剩餘的句子（如果用戶文字比Whisper多）
+        if len(all_user_sentences) > len(all_whisper_sentences):
+            logger.warning(f"⚠️ 用戶句子比Whisper多 {len(all_user_sentences) - len(all_whisper_sentences)} 個，將被忽略")
+            for i in range(len(all_whisper_sentences), len(all_user_sentences)):
+                logger.warning(f"  忽略用戶句子: '{all_user_sentences[i]['text'][:30]}...'")
+        
+        # 處理剩餘的Whisper片段（如果Whisper比用戶文字多）
+        elif len(all_whisper_sentences) > len(all_user_sentences):
+            logger.warning(f"⚠️ Whisper句子比用戶多 {len(all_whisper_sentences) - len(all_user_sentences)} 個，將保留原始文字")
+            for i in range(len(all_user_sentences), len(all_whisper_sentences)):
+                whisper_sentence = all_whisper_sentences[i]
                 
                 mapped_segments.append({
-                    "start": start_time,
-                    "end": end_time,
-                    "text": final_text,
-                    "source": "user_input",
-                    "page_index": user_text_info['page_index']
+                    "start": whisper_sentence['start'],
+                    "end": whisper_sentence['end'],
+                    "text": self._convert_chinese(whisper_sentence['text']),  # 使用Whisper原始文字
+                    "source": "whisper_only",
+                    "page_index": 0,
+                    "original_whisper": whisper_sentence['text']
                 })
                 
-                logger.info(f"  📝 片段 {i+1}: {start_time:.2f}s-{end_time:.2f}s, 頁{user_text_info['page_index']}, '{text[:20]}...'")
+                logger.warning(f"  保留Whisper: {whisper_sentence['start']:.2f}s-{whisper_sentence['end']:.2f}s: '{whisper_sentence['text'][:30]}...'")
         
-        logger.info(f"✅ 映射完成，生成 {len(mapped_segments)} 個字幕片段")
+        logger.info(f"✅ 精確映射完成，生成 {len(mapped_segments)} 個字幕片段")
         return mapped_segments
     
+    def _split_sentences_by_punctuation(self, text: str) -> List[str]:
+        """
+        根據標點符號精確切割句子
+        
+        Args:
+            text: 輸入文字
+            
+        Returns:
+            句子列表
+        """
+        if not text or not text.strip():
+            return []
+        
+        # 中文標點符號列表
+        sentence_endings = ['。', '！', '？', '；', '…', '.', '!', '?', ';']
+        
+        sentences = []
+        current_sentence = ""
+        
+        for char in text:
+            current_sentence += char
+            
+            # 如果遇到句子結束標點
+            if char in sentence_endings:
+                if current_sentence.strip():
+                    sentences.append(current_sentence.strip())
+                current_sentence = ""
+        
+        # 處理最後一個句子（沒有結束標點的情況）
+        if current_sentence.strip():
+            sentences.append(current_sentence.strip())
+        
+        # 過濾空句子
+        sentences = [s for s in sentences if s.strip()]
+        
+        return sentences
+
     def embed_subtitles_in_video(self, input_video_path: str, srt_path: str, output_video_path: str, style: str = "default") -> bool:
         """將字幕嵌入視頻"""
         try:
@@ -667,7 +730,7 @@ class ImprovedHybridSubtitleGenerator:
                 
                 try:
                     result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
-                    logger.info(f"� {method_name} 執行完畢 - 返回碼: {result.returncode}")
+                    logger.info(f"🎬 {method_name} 執行完畢 - 返回碼: {result.returncode}")
                     
                     if result.returncode == 0:
                         logger.info(f"✅ {method_name} 成功!")
