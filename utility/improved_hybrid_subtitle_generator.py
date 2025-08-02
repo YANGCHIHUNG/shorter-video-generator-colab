@@ -10,30 +10,97 @@ import tempfile
 import subprocess
 import logging
 import re
+import platform
 from typing import List, Dict, Any, Optional
 
 # 設置日誌
 logger = logging.getLogger(__name__)
 
+def get_available_chinese_font():
+    """
+    跨平台檢測可用的中文字體
+    Returns:
+        str: 字體文件路徑或字體名稱，如果找不到則返回 None
+    """
+    system = platform.system()
+    
+    if system == "Linux":
+        # Linux/Colab 環境 - 檢查 Noto 字體
+        linux_fonts = [
+            "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+            "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"
+        ]
+        for font_path in linux_fonts:
+            if os.path.exists(font_path):
+                logger.info(f"🔤 找到 Linux 字體: {font_path}")
+                return font_path
+        logger.warning("⚠️ Linux 環境未找到理想中文字體，使用系統默認")
+        return None
+        
+    elif system == "Windows":
+        # Windows 環境
+        windows_fonts = [
+            "C:/Windows/Fonts/msyh.ttc",  # Microsoft YaHei
+            "C:/Windows/Fonts/simhei.ttf",  # SimHei
+            "C:/Windows/Fonts/simsun.ttc"   # SimSun
+        ]
+        for font_path in windows_fonts:
+            if os.path.exists(font_path):
+                logger.info(f"🔤 找到 Windows 字體: {font_path}")
+                return font_path
+        return "Microsoft YaHei"  # 字體名稱
+        
+    elif system == "Darwin":  # macOS
+        # macOS 環境
+        macos_fonts = [
+            "/System/Library/Fonts/PingFang.ttc",
+            "/Library/Fonts/Arial Unicode MS.ttf",
+            "/System/Library/Fonts/STHeiti Light.ttc"
+        ]
+        for font_path in macos_fonts:
+            if os.path.exists(font_path):
+                logger.info(f"🔤 找到 macOS 字體: {font_path}")
+                return font_path
+        return "PingFang SC"  # 字體名稱
+    
+    logger.warning(f"⚠️ 未識別的系統: {system}，使用默認字體")
+    return None
+
 class ImprovedHybridSubtitleGenerator:
     """改進的混合字幕生成器 - 智能時間戳映射和字幕長度控制"""
     
-    def __init__(self, model_size: str = "small", traditional_chinese: bool = False, subtitle_length_mode: str = "auto"):
+    def __init__(self, model_size: str = "small", traditional_chinese: bool = False, subtitle_length_mode: str = "auto", chars_per_line: int = 15, max_lines: int = 2):
         """
-        初始化混合字幕生成器
+        初始化混合字幕生成器 - 簡化版本，完全使用用戶輸入文字
         
         Args:
             model_size: Whisper 模型大小 ("tiny", "small", "medium", "large")
             traditional_chinese: 是否使用繁體中文
             subtitle_length_mode: 字幕長度控制模式 ('auto', 'compact', 'standard', 'relaxed')
+            chars_per_line: 每行最大字數
+            max_lines: 最大行數
         """
         self.model_size = model_size
         self.traditional_chinese = traditional_chinese
         self.subtitle_length_mode = subtitle_length_mode
         self._whisper_model = None
         
-        # 配置字幕長度參數
-        self._configure_length_parameters()
+        # 設置字幕顯示參數
+        self.chars_per_line = chars_per_line
+        self.max_lines = max_lines
+        self.min_display_time = 1.5  # 最小顯示時間（秒）
+        
+        # 根據模式調整參數
+        if subtitle_length_mode == 'compact':
+            self.chars_per_line = min(chars_per_line, 12)
+            self.min_display_time = 1.8
+        elif subtitle_length_mode == 'relaxed':
+            self.chars_per_line = max(chars_per_line, 18)
+            self.min_display_time = 1.2
+        
+        logger.info(f"📏 字幕長度配置: {subtitle_length_mode} - 每行{self.chars_per_line}字，最多{self.max_lines}行")
         
         # 導入所需模組
         try:
@@ -44,6 +111,7 @@ class ImprovedHybridSubtitleGenerator:
             logger.error("❌ 無法導入 Whisper 模組")
             raise ImportError("需要安裝 openai-whisper: pip install openai-whisper")
         
+        # 中文轉換模組（可選）
         try:
             import zhconv
             self.zhconv = zhconv
@@ -51,56 +119,7 @@ class ImprovedHybridSubtitleGenerator:
         except ImportError:
             logger.warning("⚠️ 中文轉換模組未安裝，將跳過繁簡轉換")
             self.zhconv = None
-        
-        try:
-            import difflib
-            self.difflib = difflib
-            logger.info("✅ 文字比對模組載入成功")
-        except ImportError:
-            logger.warning("⚠️ 文字比對模組未安裝")
-            self.difflib = None
-        
-        try:
-            from fuzzywuzzy import fuzz
-            self.fuzz = fuzz
-            logger.info("✅ 模糊匹配模組載入成功")
-        except ImportError:
-            logger.warning("⚠️ 模糊匹配模組未安裝，將使用基本映射")
-            self.fuzz = None
     
-    def _configure_length_parameters(self):
-        """根據字幕長度模式配置參數"""
-        length_configs = {
-            'compact': {
-                'max_chars_per_line': 12,
-                'max_lines': 2,
-                'min_display_time': 1.8
-            },
-            'standard': {
-                'max_chars_per_line': 15,
-                'max_lines': 2,
-                'min_display_time': 1.5
-            },
-            'relaxed': {
-                'max_chars_per_line': 18,
-                'max_lines': 2,
-                'min_display_time': 1.2
-            },
-            'auto': {
-                'max_chars_per_line': 15,  # 預設值
-                'max_lines': 2,
-                'min_display_time': 1.5
-            }
-        }
-        
-        config = length_configs.get(self.subtitle_length_mode, length_configs['auto'])
-        self.max_chars_per_line = config['max_chars_per_line']
-        self.max_lines = config['max_lines']
-        self.min_display_time = config['min_display_time']
-        self.max_chars_total = self.max_chars_per_line * self.max_lines
-        
-        logger.info(f"📏 字幕長度配置: {self.subtitle_length_mode} - "
-                   f"每行{self.max_chars_per_line}字，最多{self.max_lines}行")
     
     def get_whisper_model(self):
         """獲取 Whisper 模型實例"""
@@ -411,7 +430,7 @@ class ImprovedHybridSubtitleGenerator:
     
     def generate_hybrid_subtitles(self, video_path: str, reference_texts: List[str]) -> str:
         """
-        生成改進的混合字幕
+        生成混合字幕 - 完全使用用戶輸入文字，僅從Whisper獲取時間軸
         
         Args:
             video_path: 視頻文件路徑
@@ -427,13 +446,13 @@ class ImprovedHybridSubtitleGenerator:
             # 從視頻提取音頻
             audio_path = self._extract_audio_from_video(video_path)
             
-            # 使用 Whisper 轉錄音頻獲取時間戳
+            # 使用 Whisper 轉錄音頻獲取時間戳（僅用於時間軸）
             whisper_segments = self.transcribe_audio(audio_path)
             
-            # 映射用戶文字到 Whisper 時間片段
-            mapped_segments = self._map_text_to_segments(whisper_segments, reference_texts)
+            # 直接映射用戶文字到時間軸（不進行錯字檢測或修正）
+            mapped_segments = self._simple_map_user_text_to_timeline(whisper_segments, reference_texts)
             
-            # 生成 SRT 內容（包含長字幕切分）
+            # 生成 SRT 內容
             srt_content = self._generate_srt_content(mapped_segments)
             
             # 保存 SRT 文件
@@ -482,55 +501,82 @@ class ImprovedHybridSubtitleGenerator:
             logger.error(f"❌ 音頻提取失敗: {e}")
             raise e
     
-    def _map_text_to_segments(self, whisper_segments: List[Dict], reference_texts: List[str]) -> List[Dict]:
-        """映射用戶文字到 Whisper 時間片段"""
+    def _simple_map_user_text_to_timeline(self, whisper_segments: List[Dict], reference_texts) -> List[Dict]:
+        """
+        簡單映射用戶文字到時間軸 - 完全使用用戶輸入文字
+        不進行任何錯字檢測或修正，只進行時間分配
+        """
         mapped_segments = []
         
         if not whisper_segments or not reference_texts:
+            logger.warning("⚠️ Whisper片段或用戶文字為空")
             return mapped_segments
+        
+        # 處理單一字串的情況
+        if isinstance(reference_texts, str):
+            reference_texts = [reference_texts]
         
         logger.info(f"🧠 開始映射：{len(reference_texts)} 個用戶文字 → {len(whisper_segments)} 個 Whisper 片段")
         
-        # 將所有用戶文字分割成句子
-        all_sentences = []
-        for page_text in reference_texts:
-            sentences = self._smart_split_text_into_sentences(page_text)
-            all_sentences.extend(sentences)
+        # 準備用戶文字（不進行任何修正）
+        all_user_texts = []
+        for page_index, page_text in enumerate(reference_texts):
+            if page_text and page_text.strip():
+                # 將每頁文字分割成句子
+                sentences = self._smart_split_text_into_sentences(page_text.strip())
+                for sentence in sentences:
+                    if sentence.strip():
+                        all_user_texts.append({
+                            'text': sentence.strip(),
+                            'page_index': page_index + 1
+                        })
         
-        logger.info(f"📝 總共分割出 {len(all_sentences)} 個句子")
+        logger.info(f"📝 總共分割出 {len(all_user_texts)} 個句子")
         
-        # 智能映射策略
-        if len(all_sentences) == len(whisper_segments):
-            # 一對一映射
-            for i, sentence in enumerate(all_sentences):
-                whisper_seg = whisper_segments[i]
-                text = self._convert_chinese(sentence)
-                
-                mapped_segments.append({
-                    "start": whisper_seg["start"],
-                    "end": whisper_seg["end"],
-                    "text": text
-                })
-        else:
-            # 比例分配映射
-            total_duration = whisper_segments[-1]["end"] - whisper_segments[0]["start"]
-            sentence_duration = total_duration / len(all_sentences) if all_sentences else 0
+        if not all_user_texts:
+            logger.error("❌ 沒有有效的用戶文字")
+            return mapped_segments
+        
+        # 計算總時長
+        total_duration = whisper_segments[-1]['end'] - whisper_segments[0]['start']
+        logger.info(f"📏 總時長: {total_duration:.2f} 秒")
+        
+        # 簡單時間分配：根據文字數量平均分配時間
+        time_per_segment = total_duration / len(all_user_texts)
+        current_time = whisper_segments[0]['start']
+        
+        for i, user_text_info in enumerate(all_user_texts):
+            text = user_text_info['text']
             
-            for i, sentence in enumerate(all_sentences):
-                start_time = whisper_segments[0]["start"] + (i * sentence_duration)
-                end_time = start_time + sentence_duration
-                
-                # 確保最後一個句子的結束時間與 Whisper 一致
-                if i == len(all_sentences) - 1:
-                    end_time = whisper_segments[-1]["end"]
-                
-                text = self._convert_chinese(sentence)
-                
-                mapped_segments.append({
-                    "start": start_time,
-                    "end": end_time,
-                    "text": text
-                })
+            # 計算這個片段的時間
+            start_time = current_time
+            
+            # 根據文字長度動態調整時間長度
+            char_count = len(text)
+            min_duration = max(self.min_display_time, char_count * 0.08)  # 每字至少0.08秒
+            
+            if i == len(all_user_texts) - 1:
+                # 最後一個片段使用剩餘時間
+                end_time = whisper_segments[-1]['end']
+            else:
+                # 使用計算的時間，但不少於最小顯示時間
+                duration = max(time_per_segment, min_duration)
+                end_time = start_time + duration
+            
+            # 應用繁簡轉換（如果需要）
+            final_text = self._convert_chinese(text)
+            
+            mapped_segments.append({
+                "start": start_time,
+                "end": end_time,
+                "text": final_text,
+                "source": "user_input",  # 標記為用戶輸入
+                "page_index": user_text_info['page_index']
+            })
+            
+            current_time = end_time
+            
+            logger.info(f"  📝 片段 {i+1}: {start_time:.2f}s-{end_time:.2f}s, 頁{user_text_info['page_index']}, '{text[:20]}...'")
         
         logger.info(f"✅ 映射完成，生成 {len(mapped_segments)} 個字幕片段")
         return mapped_segments

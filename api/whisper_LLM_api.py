@@ -322,8 +322,8 @@ async def api_with_edited_script(video_path, pdf_file_path, edited_script, poppl
     Args:
         enable_subtitles: Whether to generate and embed subtitles
         subtitle_style: Style for subtitles ('default', 'yellow', 'white_box', 'custom')
-        enable_subtitle_correction: Whether to enable subtitle correction using reference text
-        correction_threshold: Similarity threshold for subtitle correction (0-100)
+        traditional_chinese: Whether to convert text to traditional Chinese
+        subtitle_length_mode: Length control mode for subtitles
     """
     logger.info("🎬 Starting video processing with edited script...")
     
@@ -512,11 +512,14 @@ async def api_with_edited_script(video_path, pdf_file_path, edited_script, poppl
                     
                     logger.info(f"🏗️ Creating hybrid subtitle generator with traditional_chinese={traditional_chinese}")
                     
-                    # 使用改進的混合字幕生成器（支援字幕長度控制）
+                    # 使用簡化的混合字幕生成器 - 完全使用用戶輸入文字
+                    chars_per_line = 15 if subtitle_length_mode == 'auto' else (12 if subtitle_length_mode == 'compact' else 18)
                     hybrid_generator = ImprovedHybridSubtitleGenerator(
                         model_size="small",  # 使用小型模型以節省資源
                         traditional_chinese=traditional_chinese,
-                        subtitle_length_mode=subtitle_length_mode  # 字幕長度控制模式
+                        subtitle_length_mode=subtitle_length_mode,
+                        chars_per_line=chars_per_line,
+                        max_lines=2
                     )
                     
                     # Create temporary video path for subtitle processing

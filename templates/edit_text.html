@@ -154,49 +154,21 @@
                         </select>
                     </div>
                     
-                    <!-- 字幕校正選項 -->
+                    <!-- 字幕長度控制 -->
                     <div class="form-group" style="margin-top: 1rem;">
-                        <label class="checkbox-container">
-                            <input type="checkbox" name="enable_subtitle_correction" id="enable_subtitle_correction" checked>
-                            <span class="checkmark"></span>
-                            <span class="checkbox-label">
-                                🔧 智能字幕校正
-                                <div class="form-help" style="margin-top: 0.25rem;">
-                                    使用編輯的文字內容修正Whisper辨識錯誤，提高字幕準確性
-                                </div>
-                            </span>
-                        </label>
-                    </div>
-                    
-                    <div id="correction-options" style="margin-top: 1rem; padding-left: 2rem;">
-                        <div class="form-group">
-                            <label class="form-label">校正敏感度</label>
-                            <select name="correction_threshold" class="form-input">
-                                <option value="60">寬鬆 (60% 相似度) - 更多校正，可能過度修正</option>
-                                <option value="70" selected>標準 (70% 相似度) - 平衡校正與保留</option>
-                                <option value="80">嚴格 (80% 相似度) - 較少校正，更保守</option>
-                                <option value="90">極嚴格 (90% 相似度) - 僅修正明顯錯誤</option>
-                            </select>
-                            <div class="form-help" style="margin-top: 0.5rem;">
-                                相似度越高表示越保守，只有在Whisper結果與編輯文字非常相似時才進行校正
-                            </div>
-                        </div>
-                        
-                        <div class="form-group" style="margin-top: 1rem;">
-                            <label class="form-label">字幕長度控制</label>
-                            <select name="subtitle_length_mode" class="form-input">
-                                <option value="auto" selected>自動切分 - 智能控制字幕長度</option>
-                                <option value="compact">緊湊模式 - 每行12字，最多2行</option>
-                                <option value="standard">標準模式 - 每行15字，最多2行</option>
-                                <option value="relaxed">寬鬆模式 - 每行18字，最多2行</option>
-                            </select>
-                            <div class="form-help" style="margin-top: 0.5rem;">
-                                控制字幕顯示長度以避免超出畫面：
-                                <br>• 自動切分：根據內容長度智能選擇最佳切分方式
-                                <br>• 緊湊模式：適合手機或小螢幕觀看
-                                <br>• 標準模式：適合大多數情況，平衡可讀性與螢幕適配
-                                <br>• 寬鬆模式：適合大螢幕，較少換行
-                            </div>
+                        <label class="form-label">字幕長度控制</label>
+                        <select name="subtitle_length_mode" class="form-input">
+                            <option value="auto" selected>自動切分 - 智能控制字幕長度</option>
+                            <option value="compact">緊湊模式 - 每行12字，最多2行</option>
+                            <option value="standard">標準模式 - 每行15字，最多2行</option>
+                            <option value="relaxed">寬鬆模式 - 每行18字，最多2行</option>
+                        </select>
+                        <div class="form-help" style="margin-top: 0.5rem;">
+                            控制字幕顯示長度以避免超出畫面：
+                            <br>• 自動切分：根據內容長度智能選擇最佳切分方式
+                            <br>• 緊湊模式：適合手機或小螢幕觀看
+                            <br>• 標準模式：適合大多數情況，平衡可讀性與螢幕適配
+                            <br>• 寬鬆模式：適合大螢幕，較少換行
                         </div>
                     </div>
                     
@@ -289,16 +261,6 @@
             subtitleOptions.classList.remove('disabled');
         } else {
             subtitleOptions.classList.add('disabled');
-        }
-    });
-
-    // Handle subtitle correction checkbox toggle
-    document.getElementById('enable_subtitle_correction').addEventListener('change', function() {
-        const correctionOptions = document.getElementById('correction-options');
-        if (this.checked) {
-            correctionOptions.classList.remove('disabled');
-        } else {
-            correctionOptions.classList.add('disabled');
         }
     });
 
@@ -704,8 +666,7 @@
             enable_subtitles: formData.get('enable_subtitles') === 'on',
             subtitle_style: formData.get('subtitle_style'),
             traditional_chinese: true,  // Always enable traditional Chinese conversion
-            enable_subtitle_correction: formData.get('enable_subtitle_correction') === 'on',
-            correction_threshold: parseInt(formData.get('correction_threshold') || '70')
+            subtitle_length_mode: formData.get('subtitle_length_mode') || 'auto'
         };
         
         fetch('/process_with_edited_text', {
@@ -1087,14 +1048,5 @@
     pointer-events: none;
 }
 
-#correction-options {
-    border-left: 2px solid var(--primary-300);
-    transition: opacity 0.3s ease;
-}
-
-#correction-options.disabled {
-    opacity: 0.5;
-    pointer-events: none;
-}
 </style>
 {% endblock %}
