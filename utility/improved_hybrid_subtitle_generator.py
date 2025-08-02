@@ -503,8 +503,7 @@ class ImprovedHybridSubtitleGenerator:
     
     def _simple_map_user_text_to_timeline(self, whisper_segments: List[Dict], reference_texts) -> List[Dict]:
         """
-        簡單映射用戶文字到時間軸 - 完全使用用戶輸入文字
-        不進行任何錯字檢測或修正，只進行時間分配
+        簡單映射用戶文字到時間軸 - 使用Whisper時間戳，但替換為用戶文字
         """
         mapped_segments = []
         
@@ -537,46 +536,64 @@ class ImprovedHybridSubtitleGenerator:
             logger.error("❌ 沒有有效的用戶文字")
             return mapped_segments
         
-        # 計算總時長
-        total_duration = whisper_segments[-1]['end'] - whisper_segments[0]['start']
-        logger.info(f"📏 總時長: {total_duration:.2f} 秒")
+        # 策略：直接使用 Whisper 的時間戳，用用戶文字替換內容
+        # 如果用戶文字片段數量與 Whisper 片段不同，進行智能映射
         
-        # 簡單時間分配：根據文字數量平均分配時間
-        time_per_segment = total_duration / len(all_user_texts)
-        current_time = whisper_segments[0]['start']
+        if len(all_user_texts) <= len(whisper_segments):
+            # 用戶文字較少或相等：每個用戶文字對應一個或多個 Whisper 片段
+            logger.info("� 用戶文字數量 ≤ Whisper片段數，使用直接映射")
+            
+            for i, user_text_info in enumerate(all_user_texts):
+                if i < len(whisper_segments):
+                    whisper_seg = whisper_segments[i]
+                    text = user_text_info['text']
+                    
+                    # 應用繁簡轉換（如果需要）
+                    final_text = self._convert_chinese(text)
+                    
+                    mapped_segments.append({
+                        "start": whisper_seg['start'],
+                        "end": whisper_seg['end'],
+                        "text": final_text,
+                        "source": "user_input",
+                        "page_index": user_text_info['page_index'],
+                        "original_whisper": whisper_seg['text']  # 保留原始Whisper文字以供調試
+                    })
+                    
+                    logger.info(f"  📝 片段 {i+1}: {whisper_seg['start']:.2f}s-{whisper_seg['end']:.2f}s, 頁{user_text_info['page_index']}, '{text[:20]}...'")
         
-        for i, user_text_info in enumerate(all_user_texts):
-            text = user_text_info['text']
+        else:
+            # 用戶文字較多：需要將多個用戶文字片段映射到 Whisper 時間範圍
+            logger.info("📊 用戶文字數量 > Whisper片段數，使用比例映射")
             
-            # 計算這個片段的時間
-            start_time = current_time
+            total_whisper_duration = whisper_segments[-1]['end'] - whisper_segments[0]['start']
             
-            # 根據文字長度動態調整時間長度
-            char_count = len(text)
-            min_duration = max(self.min_display_time, char_count * 0.08)  # 每字至少0.08秒
-            
-            if i == len(all_user_texts) - 1:
-                # 最後一個片段使用剩餘時間
-                end_time = whisper_segments[-1]['end']
-            else:
-                # 使用計算的時間，但不少於最小顯示時間
-                duration = max(time_per_segment, min_duration)
-                end_time = start_time + duration
-            
-            # 應用繁簡轉換（如果需要）
-            final_text = self._convert_chinese(text)
-            
-            mapped_segments.append({
-                "start": start_time,
-                "end": end_time,
-                "text": final_text,
-                "source": "user_input",  # 標記為用戶輸入
-                "page_index": user_text_info['page_index']
-            })
-            
-            current_time = end_time
-            
-            logger.info(f"  📝 片段 {i+1}: {start_time:.2f}s-{end_time:.2f}s, 頁{user_text_info['page_index']}, '{text[:20]}...'")
+            for i, user_text_info in enumerate(all_user_texts):
+                text = user_text_info['text']
+                
+                # 計算這個用戶文字在整體中的比例位置
+                start_ratio = i / len(all_user_texts)
+                end_ratio = (i + 1) / len(all_user_texts)
+                
+                # 根據比例計算在 Whisper 時間軸中的位置
+                start_time = whisper_segments[0]['start'] + start_ratio * total_whisper_duration
+                end_time = whisper_segments[0]['start'] + end_ratio * total_whisper_duration
+                
+                # 確保不超過最後一個 Whisper 片段的結束時間
+                end_time = min(end_time, whisper_segments[-1]['end'])
+                
+                # 應用繁簡轉換（如果需要）
+                final_text = self._convert_chinese(text)
+                
+                mapped_segments.append({
+                    "start": start_time,
+                    "end": end_time,
+                    "text": final_text,
+                    "source": "user_input",
+                    "page_index": user_text_info['page_index']
+                })
+                
+                logger.info(f"  📝 片段 {i+1}: {start_time:.2f}s-{end_time:.2f}s, 頁{user_text_info['page_index']}, '{text[:20]}...'")
         
         logger.info(f"✅ 映射完成，生成 {len(mapped_segments)} 個字幕片段")
         return mapped_segments
