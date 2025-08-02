@@ -236,9 +236,9 @@ class ImprovedHybridSubtitleGenerator:
             切分後的字幕片段列表
         """
         # 使用配置的字幕顯示參數
-        max_chars_per_line = self.max_chars_per_line
+        max_chars_per_line = self.chars_per_line
         max_lines = self.max_lines
-        max_chars_total = self.max_chars_total
+        max_chars_total = max_chars_per_line * max_lines
         min_display_time = self.min_display_time
         
         # 如果文字不超過限制，直接返回
@@ -375,7 +375,7 @@ class ImprovedHybridSubtitleGenerator:
                 part_end_time = end_time
             
             # 格式化為雙行顯示
-            formatted_text = self._format_subtitle_lines(part, self.max_chars_per_line)
+            formatted_text = self._format_subtitle_lines(part, self.chars_per_line)
             segments.append({
                 "start": current_time,
                 "end": part_end_time,
@@ -585,71 +585,6 @@ class ImprovedHybridSubtitleGenerator:
         """將字幕嵌入視頻"""
         try:
             logger.info(f"🎬 開始嵌入字幕: {input_video_path}")
-            
-            # 檢測系統並選擇合適的字體
-            def get_available_chinese_font():
-                """獲取可用的中文字體"""
-                import platform
-                system = platform.system().lower()
-                
-                # 常見的中文字體路徑
-                font_paths = []
-                
-                if system == "linux":
-                    # Linux 系統常見的中文字體路徑
-                    font_paths = [
-                        "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
-                        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
-                        "/usr/share/fonts/truetype/arphic/ukai.ttc",
-                        "/usr/share/fonts/truetype/arphic/uming.ttc",
-                        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-                        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
-                        "/System/Library/Fonts/Arial.ttf",  # 有些Linux系統有這個
-                    ]
-                    # 字體名稱替代（如果找不到檔案）
-                    font_names = [
-                        "Noto Sans CJK SC",
-                        "Noto Sans CJK TC", 
-                        "AR PL UKai CN",
-                        "AR PL UMing CN",
-                        "DejaVu Sans",
-                        "Liberation Sans",
-                        "Arial"
-                    ]
-                elif system == "darwin":  # macOS
-                    font_paths = [
-                        "/System/Library/Fonts/PingFang.ttc",
-                        "/Library/Fonts/Arial Unicode MS.ttf",
-                        "/System/Library/Fonts/Arial.ttf"
-                    ]
-                else:  # Windows
-                    font_paths = [
-                        "C:/Windows/Fonts/msyh.ttc",  # Microsoft YaHei
-                        "C:/Windows/Fonts/simhei.ttf",  # SimHei
-                        "C:/Windows/Fonts/simsun.ttc",  # SimSun
-                        "C:/Windows/Fonts/arial.ttf"
-                    ]
-                    font_names = [
-                        "Microsoft YaHei",
-                        "SimHei",
-                        "SimSun",
-                        "Arial"
-                    ]
-                
-                # 首先檢查字體檔案是否存在
-                for i, font_path in enumerate(font_paths):
-                    if os.path.exists(font_path):
-                        logger.info(f"✅ 找到可用字體檔案: {font_path}")
-                        return font_path
-                
-                # 如果沒有找到字體檔案，嘗試使用字體名稱
-                logger.warning("⚠️ 未找到字體檔案，嘗試使用字體名稱")
-                if system == "linux":
-                    return font_names[0] if font_names else "DejaVu Sans"
-                elif system == "darwin":
-                    return "Arial"
-                else:
-                    return font_names[0] if font_names else "Arial"
             
             # 獲取可用字體
             font_name = get_available_chinese_font()
