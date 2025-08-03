@@ -715,6 +715,7 @@ def process_with_edited_text():
         TTS_model_type = request_data.get('TTS_model_type', 'edge')
         voice = request_data.get('voice', 'zh-TW-YunJheNeural')
         enable_subtitles = request_data.get('enable_subtitles', False)
+        subtitle_method = request_data.get('subtitle_method', 'speech_rate')
         subtitle_style = request_data.get('subtitle_style', 'default')
         traditional_chinese = request_data.get('traditional_chinese', False)
         subtitle_length_mode = request_data.get('subtitle_length_mode', 'auto')
@@ -858,6 +859,7 @@ def run_processing_with_edited_text(video_path, pdf_path, edited_pages, resoluti
             tts_model=TTS_model_type,
             voice=voice,
             enable_subtitles=enable_subtitles,
+            subtitle_method=subtitle_method,
             subtitle_style=subtitle_style,
             traditional_chinese=traditional_chinese,
             subtitle_length_mode=subtitle_length_mode
