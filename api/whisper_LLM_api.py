@@ -316,7 +316,7 @@ async def api(
     logger.info("✅ Cleanup process completed!")
 
 
-async def api_with_edited_script(video_path, pdf_file_path, edited_script, poppler_path, output_audio_dir, output_video_dir, output_text_path, resolution, tts_model, voice, enable_subtitles=False, subtitle_style="default", traditional_chinese=False, subtitle_length_mode="auto"):
+async def api_with_edited_script(video_path, pdf_file_path, edited_script, poppler_path, output_audio_dir, output_video_dir, output_text_path, resolution, tts_model, voice, enable_subtitles=False, subtitle_style="default", traditional_chinese=False, subtitle_length_mode="auto", subtitle_method="speech_rate"):
     """
     API function to process video with pre-edited script content
     Args:
@@ -324,6 +324,7 @@ async def api_with_edited_script(video_path, pdf_file_path, edited_script, poppl
         subtitle_style: Style for subtitles ('default', 'yellow', 'white_box', 'custom')
         traditional_chinese: Whether to convert text to traditional Chinese
         subtitle_length_mode: Length control mode for subtitles
+        subtitle_method: Method for subtitle generation ('whisper', 'speech_rate')
     """
     logger.info("🎬 Starting video processing with edited script...")
     
@@ -528,11 +529,18 @@ async def api_with_edited_script(video_path, pdf_file_path, edited_script, poppl
                     
                     # 生成混合字幕
                     if reference_texts:
-                        logger.info("� Generating hybrid subtitles with user text...")
-                        srt_path = hybrid_generator.generate_hybrid_subtitles(
-                            video_path=temp_video_path,
-                            reference_texts=reference_texts
-                        )
+                        if subtitle_method == "speech_rate":
+                            logger.info("📊 Generating subtitles using speech rate calculation...")
+                            srt_path = hybrid_generator.generate_subtitles_by_speech_rate(
+                                video_path=temp_video_path,
+                                reference_texts=reference_texts
+                            )
+                        else:  # subtitle_method == "whisper"
+                            logger.info("🎙️ Generating hybrid subtitles with Whisper + user text...")
+                            srt_path = hybrid_generator.generate_hybrid_subtitles(
+                                video_path=temp_video_path,
+                                reference_texts=reference_texts
+                            )
                         
                         # 將字幕嵌入視頻
                         success = hybrid_generator.embed_subtitles_in_video(

@@ -661,6 +661,233 @@ class ImprovedHybridSubtitleGenerator:
         
         return sentences
 
+    def generate_subtitles_by_speech_rate(self, video_path: str, reference_texts: List[str]) -> str:
+        """
+        基於語速計算生成字幕 - 無需Whisper，直接用文稿和音頻時長計算
+        
+        Args:
+            video_path: 視頻文件路徑
+            reference_texts: 用戶提供的參考文字列表
+            
+        Returns:
+            SRT 字幕文件路徑
+        """
+        try:
+            logger.info(f"📊 開始基於語速生成字幕，視頻: {video_path}")
+            logger.info(f"📄 參考文字頁數: {len(reference_texts)}")
+            
+            # 從視頻提取音頻並獲取時長
+            audio_path = self._extract_audio_from_video(video_path)
+            audio_duration = self._get_audio_duration(audio_path)
+            
+            logger.info(f"🎵 音頻時長: {audio_duration:.2f} 秒")
+            
+            # 合併所有文字
+            full_text = "\n".join(reference_texts) if isinstance(reference_texts, list) else reference_texts
+            
+            # 計算語速
+            speech_rate = self._calculate_speech_rate(full_text, audio_duration)
+            logger.info(f"📈 計算語速: {speech_rate:.2f} 字/秒")
+            
+            # 按句子切割文稿
+            sentences = []
+            for page_index, page_text in enumerate(reference_texts):
+                if page_text and page_text.strip():
+                    page_sentences = self._split_sentences_by_punctuation(page_text.strip())
+                    for sentence in page_sentences:
+                        if sentence.strip():
+                            sentences.append({
+                                'text': sentence.strip(),
+                                'page_index': page_index + 1
+                            })
+            
+            logger.info(f"📝 文稿切割: {len(sentences)} 個句子")
+            
+            # 根據語速分配時間戳
+            timestamped_segments = self._assign_timestamps_by_speech_rate(sentences, speech_rate)
+            
+            # 調整時間戳確保不超過總時長
+            adjusted_segments = self._adjust_timestamps_to_duration(timestamped_segments, audio_duration)
+            
+            # 生成 SRT 內容
+            srt_content = self._generate_srt_content(adjusted_segments)
+            
+            # 保存 SRT 文件
+            srt_path = video_path.replace('.mp4', '_speech_rate.srt')
+            with open(srt_path, 'w', encoding='utf-8') as f:
+                f.write(srt_content)
+            
+            logger.info(f"✅ 基於語速的字幕生成完成: {srt_path}")
+            
+            # 清理臨時音頻文件
+            if os.path.exists(audio_path):
+                os.remove(audio_path)
+            
+            return srt_path
+            
+        except Exception as e:
+            logger.error(f"❌ 基於語速的字幕生成失敗: {e}")
+            raise e
+    
+    def _get_audio_duration(self, audio_path: str) -> float:
+        """獲取音頻文件時長"""
+        try:
+            cmd = ['ffprobe', '-v', 'error', '-show_entries', 
+                   'format=duration', '-of', 'csv=p=0', audio_path]
+            
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            
+            if result.returncode != 0:
+                raise Exception(f"FFprobe 獲取時長失敗: {result.stderr}")
+            
+            duration = float(result.stdout.strip())
+            logger.info(f"🎵 音頻時長: {duration:.2f} 秒")
+            return duration
+            
+        except Exception as e:
+            logger.error(f"❌ 獲取音頻時長失敗: {e}")
+            # 備用方法：嘗試使用 ffmpeg
+            try:
+                cmd = ['ffmpeg', '-i', audio_path, '-f', 'null', '-']
+                result = subprocess.run(cmd, capture_output=True, text=True)
+                
+                # 從 stderr 中解析時長
+                import re
+                duration_match = re.search(r'time=(\d{2}):(\d{2}):(\d{2}\.\d{2})', result.stderr)
+                if duration_match:
+                    hours, minutes, seconds = duration_match.groups()
+                    total_seconds = int(hours) * 3600 + int(minutes) * 60 + float(seconds)
+                    logger.info(f"🎵 音頻時長（備用方法）: {total_seconds:.2f} 秒")
+                    return total_seconds
+                else:
+                    raise Exception("無法解析音頻時長")
+                    
+            except Exception as backup_e:
+                logger.error(f"❌ 備用方法也失敗: {backup_e}")
+                raise e
+    
+    def _count_effective_characters(self, text: str) -> int:
+        """計算有效字數（排除標點和空格）"""
+        import re
+        effective_chars = len(re.sub(r'[^\w]', '', text))
+        return effective_chars
+    
+    def _calculate_pause_time(self, text: str) -> float:
+        """計算文本中標點符號的總停頓時間"""
+        punctuation_pauses = {
+            '。': 0.5, '！': 0.5, '？': 0.5, '；': 0.3,
+            '，': 0.2, '、': 0.15, '：': 0.25, '…': 0.4
+        }
+        
+        total_pause_time = 0
+        for punct, pause_duration in punctuation_pauses.items():
+            count = text.count(punct)
+            total_pause_time += count * pause_duration
+        
+        return total_pause_time
+    
+    def _calculate_speech_rate(self, text: str, duration: float) -> float:
+        """計算實際語速（字/秒）"""
+        # 使用幫助方法計算有效字數
+        effective_chars = self._count_effective_characters(text)
+        
+        # 使用幫助方法計算總停頓時間
+        total_pause_time = self._calculate_pause_time(text)
+        
+        # 計算淨語音時間（扣除停頓）
+        net_speech_time = duration - total_pause_time
+        
+        # 確保淨語音時間不會太小
+        if net_speech_time <= 0:
+            net_speech_time = duration * 0.8  # 保底80%的時間用於說話
+        
+        speech_rate = effective_chars / net_speech_time
+        
+        logger.info(f"📊 文字統計: {effective_chars} 個有效字符")
+        logger.info(f"⏱️ 預估停頓時間: {total_pause_time:.2f} 秒")
+        logger.info(f"🗣️ 淨語音時間: {net_speech_time:.2f} 秒")
+        logger.info(f"📈 計算語速: {speech_rate:.2f} 字/秒")
+        
+        return speech_rate
+    
+    def _assign_timestamps_by_speech_rate(self, sentences: List[Dict], speech_rate: float) -> List[Dict]:
+        """根據語速分配時間戳"""
+        segments = []
+        current_time = 0.0
+        
+        # 標點符號停頓時間設定
+        punctuation_pauses = {
+            '。': 0.5, '！': 0.5, '？': 0.5, '；': 0.3,
+            '，': 0.2, '、': 0.15, '：': 0.25, '…': 0.4
+        }
+        
+        for i, sentence_info in enumerate(sentences):
+            sentence = sentence_info['text']
+            
+            # 計算句子的有效字數
+            import re
+            effective_chars = len(re.sub(r'[^\w]', '', sentence))
+            
+            # 計算說話時間
+            speech_time = effective_chars / speech_rate if effective_chars > 0 else 0.1
+            
+            # 計算停頓時間
+            pause_time = 0.1  # 預設停頓
+            for punct, pause_duration in punctuation_pauses.items():
+                if sentence.endswith(punct):
+                    pause_time = pause_duration
+                    break
+            
+            # 總時間 = 說話時間 + 停頓時間
+            total_duration = speech_time + pause_time
+            end_time = current_time + total_duration
+            
+            # 應用繁簡轉換
+            final_text = self._convert_chinese(sentence)
+            
+            segments.append({
+                'start': current_time,
+                'end': end_time,
+                'text': final_text,
+                'effective_chars': effective_chars,
+                'speech_time': speech_time,
+                'pause_time': pause_time,
+                'source': 'speech_rate_calculation',
+                'page_index': sentence_info['page_index']
+            })
+            
+            logger.info(f"  📝 句子 {i+1}: {current_time:.2f}s-{end_time:.2f}s ({effective_chars}字, {speech_time:.2f}s+{pause_time:.2f}s)")
+            logger.info(f"     內容: '{final_text[:30]}...'")
+            
+            current_time = end_time
+        
+        return segments
+    
+    def _adjust_timestamps_to_duration(self, segments: List[Dict], target_duration: float) -> List[Dict]:
+        """調整時間戳以匹配目標時長"""
+        if not segments:
+            return segments
+        
+        # 計算當前總時長
+        current_total = segments[-1]['end']
+        
+        logger.info(f"⚖️ 時間調整: 計算時長 {current_total:.2f}s → 目標時長 {target_duration:.2f}s")
+        
+        # 如果時間差異超過1秒，進行縮放調整
+        if abs(current_total - target_duration) > 1.0:
+            scale_factor = target_duration / current_total
+            logger.info(f"🔧 應用縮放比例: {scale_factor:.3f}")
+            
+            for segment in segments:
+                segment['start'] *= scale_factor
+                segment['end'] *= scale_factor
+            
+            logger.info(f"✅ 時間戳調整完成，最終時長: {segments[-1]['end']:.2f}s")
+        else:
+            logger.info("✅ 時間戳無需調整，誤差在可接受範圍內")
+        
+        return segments
+
     def embed_subtitles_in_video(self, input_video_path: str, srt_path: str, output_video_path: str, style: str = "default") -> bool:
         """將字幕嵌入視頻"""
         try:
