@@ -926,11 +926,11 @@ class ImprovedHybridSubtitleGenerator:
                 
                 # 方法1: 使用動態字體的完整樣式
                 if font_name and not font_name.startswith("/"):  # 字體名稱而非路徑
-                    style_with_font = f"force_style='FontName={font_name},FontSize=24,PrimaryColour=&Hffffff,SecondaryColour=&Hffffff,OutlineColour=&H0,BackColour=&H80000000,Bold=1,Italic=0,Underline=0,StrikeOut=0,ScaleX=100,ScaleY=100,Spacing=0,Angle=0,BorderStyle=1,Outline=2,Shadow=0,Alignment=2,MarginL=10,MarginR=10,MarginV=10'"
+                    style_with_font = f"force_style='FontName={font_name},FontSize=18,PrimaryColour=&Hffffff,SecondaryColour=&Hffffff,OutlineColour=&H0,BackColour=&H80000000,Bold=1,Italic=0,Underline=0,StrikeOut=0,ScaleX=100,ScaleY=100,Spacing=0,Angle=0,BorderStyle=1,Outline=2,Shadow=0,Alignment=2,MarginL=10,MarginR=10,MarginV=10'"
                     methods.append(("完整樣式", f"subtitles='{normalized_srt_path}':{style_with_font}"))
                 
                 # 方法2: 簡化樣式
-                simple_style = "force_style='FontSize=24,PrimaryColour=&Hffffff,OutlineColour=&H0,Bold=1,Outline=2,Alignment=2'"
+                simple_style = "force_style='FontSize=18,PrimaryColour=&Hffffff,OutlineColour=&H0,Bold=1,Outline=2,Alignment=2'"
                 methods.append(("簡化樣式", f"subtitles='{normalized_srt_path}':{simple_style}"))
                 
                 # 方法3: 最基本的字幕
