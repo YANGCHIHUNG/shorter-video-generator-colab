@@ -71,36 +71,29 @@ def get_available_chinese_font():
 class ImprovedHybridSubtitleGenerator:
     """改進的混合字幕生成器 - 智能時間戳映射和字幕長度控制"""
     
-    def __init__(self, model_size: str = "small", traditional_chinese: bool = False, subtitle_length_mode: str = "auto", chars_per_line: int = 15, max_lines: int = 2):
+    def __init__(self, model_size: str = "small", traditional_chinese: bool = False, subtitle_length_mode: str = "punctuation_only", chars_per_line: int = 25, max_lines: int = 1):
         """
-        初始化混合字幕生成器 - 簡化版本，完全使用用戶輸入文字
+        初始化混合字幕生成器 - 單行標點符號斷句模式
         
         Args:
             model_size: Whisper 模型大小 ("tiny", "small", "medium", "large")
             traditional_chinese: 是否使用繁體中文
-            subtitle_length_mode: 字幕長度控制模式 ('auto', 'compact', 'standard', 'relaxed')
-            chars_per_line: 每行最大字數
-            max_lines: 最大行數
+            subtitle_length_mode: 固定使用標點符號斷句
+            chars_per_line: 每行最大字數（單行模式）
+            max_lines: 固定為1行
         """
         self.model_size = model_size
         self.traditional_chinese = traditional_chinese
-        self.subtitle_length_mode = subtitle_length_mode
+        self.subtitle_length_mode = 'punctuation_only'  # 固定使用標點符號斷句
         self._whisper_model = None
         
-        # 設置字幕顯示參數
-        self.chars_per_line = chars_per_line
-        self.max_lines = max_lines
+        # 設置字幕顯示參數 - 強制單行顯示，增加字符數
+        self.chars_per_line = 25  # 增加到25字，因為只有一行
+        self.max_lines = 1  # 強制只有一行
         self.min_display_time = 1.5  # 最小顯示時間（秒）
         
-        # 根據模式調整參數
-        if subtitle_length_mode == 'compact':
-            self.chars_per_line = min(chars_per_line, 12)
-            self.min_display_time = 1.8
-        elif subtitle_length_mode == 'relaxed':
-            self.chars_per_line = max(chars_per_line, 18)
-            self.min_display_time = 1.2
-        
-        logger.info(f"📏 字幕長度配置: {subtitle_length_mode} - 每行{self.chars_per_line}字，最多{self.max_lines}行")
+        # 固定使用標點符號斷句，不提供其他選項
+        logger.info(f"📏 字幕配置: 標點符號斷句 - 每行{self.chars_per_line}字，單行顯示")
         
         # 導入所需模組
         try:
@@ -511,36 +504,9 @@ class ImprovedHybridSubtitleGenerator:
         return segments
     
     def _format_subtitle_lines(self, text: str, max_chars_per_line: int) -> str:
-        """將文字格式化為適合的行數"""
-        if len(text) <= max_chars_per_line:
-            return text
-        
-        # 嘗試在合適的位置斷行
-        words = list(text)  # 中文按字元處理
-        lines = []
-        current_line = ""
-        
-        for char in words:
-            if len(current_line + char) <= max_chars_per_line:
-                current_line += char
-            else:
-                if current_line:
-                    lines.append(current_line)
-                current_line = char
-        
-        # 添加最後一行
-        if current_line:
-            lines.append(current_line)
-        
-        # 最多兩行，如果超過則合併
-        if len(lines) > 2:
-            # 重新分配到兩行
-            half_chars = len(text) // 2
-            line1 = text[:half_chars]
-            line2 = text[half_chars:]
-            return f"{line1}\n{line2}"
-        else:
-            return "\n".join(lines)
+        """將文字格式化為單行顯示（不換行）"""
+        # 直接返回原始文字，不進行換行處理
+        return text.strip()
     
     def _format_time(self, seconds: float) -> str:
         """將秒數轉換為 SRT 時間格式"""
