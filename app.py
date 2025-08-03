@@ -765,7 +765,7 @@ def process_with_edited_text():
         # Start processing with edited content
         processing_thread = threading.Thread(
             target=run_processing_with_edited_text, 
-            args=(video_path, pdf_path, edited_pages, resolution, user_folder, TTS_model_type, voice, enable_subtitles, subtitle_style, traditional_chinese, subtitle_length_mode)
+            args=(video_path, pdf_path, edited_pages, resolution, user_folder, TTS_model_type, voice, enable_subtitles, subtitle_method, subtitle_style, traditional_chinese, subtitle_length_mode)
         )
         processing_thread.start()
         
@@ -776,7 +776,7 @@ def process_with_edited_text():
         app.logger.error(f"Error in /process_with_edited_text: {e}", exc_info=True)
         return jsonify({"status": "error", "message": f"Server error: {e}"}), 500
 
-def run_processing_with_edited_text(video_path, pdf_path, edited_pages, resolution, user_folder, TTS_model_type, voice, enable_subtitles=False, subtitle_style="default", traditional_chinese=False, subtitle_length_mode="auto"):
+def run_processing_with_edited_text(video_path, pdf_path, edited_pages, resolution, user_folder, TTS_model_type, voice, enable_subtitles=False, subtitle_method="speech_rate", subtitle_style="default", traditional_chinese=False, subtitle_length_mode="auto"):
     """Background processing task with edited text"""
     process_id = datetime.now().strftime("%Y%m%d_%H%M%S")
     app_logger.info(f"✏️ 開始編輯文字處理作業 ID: {process_id}")
@@ -790,6 +790,7 @@ def run_processing_with_edited_text(video_path, pdf_path, edited_pages, resoluti
     app_logger.info(f"  - TTS 模型: {TTS_model_type}")
     app_logger.info(f"  - 語音: {voice}")
     app_logger.info(f"  - 啟用字幕: {enable_subtitles}")
+    app_logger.info(f"  - 字幕方法: {subtitle_method}")
     app_logger.info(f"  - 字幕樣式: {subtitle_style}")
     app_logger.info(f"  - 繁體中文: {traditional_chinese}")
     app_logger.info(f"  - 字幕長度模式: {subtitle_length_mode}")
