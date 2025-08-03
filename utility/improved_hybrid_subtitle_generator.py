@@ -302,47 +302,154 @@ class ImprovedHybridSubtitleGenerator:
         return segments
     
     def _smart_split_by_punctuation(self, text: str, max_chars: int) -> List[str]:
-        """根據標點符號智能切分文字"""
-        # 中文標點符號
-        punctuation_marks = ['。', '！', '？', '；', '，', '、', '：']
+        """基於標點符號的智能斷句機制"""
+        
+        # 定義中文標點符號的優先順序（優先在這些符號處斷句）
+        primary_punctuation = ['。', '！', '？']  # 強斷句標點
+        secondary_punctuation = ['；', '：']      # 中等斷句標點  
+        tertiary_punctuation = ['，', '、']       # 弱斷句標點
         
         sentences = []
         current_sentence = ""
         
-        for char in text:
+        i = 0
+        while i < len(text):
+            char = text[i]
             current_sentence += char
             
-            # 遇到標點符號且長度適中時切分
-            if char in punctuation_marks and len(current_sentence.strip()) > 0:
-                if len(current_sentence) <= max_chars:
+            # 檢查是否遇到標點符號
+            if char in primary_punctuation + secondary_punctuation + tertiary_punctuation:
+                # 如果當前句子長度適中，在此處斷句
+                if 5 <= len(current_sentence.strip()) <= max_chars:
                     sentences.append(current_sentence.strip())
                     current_sentence = ""
-                # 如果加上標點後仍然太長，先切分前面的部分
-                elif len(current_sentence) > max_chars:
-                    # 回退到標點前
-                    pre_punct = current_sentence[:-1].strip()
-                    if pre_punct:
-                        sentences.append(pre_punct)
-                    current_sentence = char  # 保留標點符號
+                    i += 1
+                    continue
+                # 如果當前句子太長，需要在前面找合適的斷點
+                elif len(current_sentence.strip()) > max_chars:
+                    # 在當前句子中找最佳斷點
+                    best_split = self._find_best_split_point(current_sentence[:-1], max_chars)
+                    if best_split:
+                        sentences.append(best_split.strip())
+                        current_sentence = current_sentence[len(best_split):].strip()
+                    else:
+                        # 如果找不到合適斷點，強制斷句
+                        split_point = max_chars
+                        sentences.append(current_sentence[:split_point].strip())
+                        current_sentence = current_sentence[split_point:].strip()
+            
+            # 如果當前句子已經太長，即使沒有標點也要斷句
+            elif len(current_sentence) > max_chars * 1.5:  # 給一些緩衝空間
+                # 嘗試找到合適的斷點
+                best_split = self._find_best_split_point(current_sentence, max_chars)
+                if best_split:
+                    sentences.append(best_split.strip())
+                    current_sentence = current_sentence[len(best_split):].strip()
+                else:
+                    # 強制斷句
+                    sentences.append(current_sentence[:max_chars].strip())
+                    current_sentence = current_sentence[max_chars:].strip()
+                continue
+            
+            i += 1
         
         # 處理剩餘文字
         if current_sentence.strip():
-            sentences.append(current_sentence.strip())
+            # 如果剩餘文字太長，再次切分
+            if len(current_sentence.strip()) > max_chars:
+                remaining_parts = self._force_split_by_length(current_sentence.strip(), max_chars)
+                sentences.extend(remaining_parts)
+            else:
+                sentences.append(current_sentence.strip())
         
         # 合併過短的片段
         return self._merge_short_segments(sentences, max_chars)
     
+    def _find_best_split_point(self, text: str, max_chars: int) -> str:
+        """在文本中找到最佳的斷句點"""
+        if len(text) <= max_chars:
+            return text
+            
+        # 優先順序：強標點 > 中等標點 > 弱標點 > 空格
+        primary_punctuation = ['。', '！', '？']
+        secondary_punctuation = ['；', '：']
+        tertiary_punctuation = ['，', '、']
+        
+        # 在最大字符數範圍內查找最佳斷點
+        best_pos = -1
+        best_priority = 0
+        
+        for i in range(min(len(text), max_chars), max(0, max_chars - 10), -1):
+            char = text[i-1] if i > 0 else ''
+            priority = 0
+            
+            if char in primary_punctuation:
+                priority = 4
+            elif char in secondary_punctuation:
+                priority = 3
+            elif char in tertiary_punctuation:
+                priority = 2
+            elif char == ' ' or char.isspace():
+                priority = 1
+            
+            if priority > best_priority:
+                best_priority = priority
+                best_pos = i
+                
+            # 如果找到強標點，直接使用
+            if priority >= 4:
+                break
+        
+        if best_pos > 0:
+            return text[:best_pos]
+        else:
+            # 如果找不到合適的斷點，在最大字符數處強制斷句
+            return text[:max_chars]
+    
+    def _force_split_by_length(self, text: str, max_chars: int) -> List[str]:
+        """按長度強制切分文本"""
+        parts = []
+        for i in range(0, len(text), max_chars):
+            part = text[i:i + max_chars].strip()
+            if part:
+                parts.append(part)
+        return parts
+    
     def _merge_short_segments(self, sentences: List[str], max_chars: int) -> List[str]:
-        """合併過短的片段"""
+        """合併過短的片段，同時保持標點符號斷句的邏輯"""
+        if not sentences:
+            return []
+            
         merged = []
         current = ""
         
-        for sentence in sentences:
-            # 如果合併後不超過限制，則合併
-            if len(current + sentence) <= max_chars:
+        # 定義不應該合併的標點符號（句子結束標點）
+        sentence_ending_punctuation = ['。', '！', '？']
+        
+        for i, sentence in enumerate(sentences):
+            sentence = sentence.strip()
+            if not sentence:
+                continue
+                
+            # 檢查當前累積文本的最後一個字符
+            should_merge = True
+            
+            if current:
+                # 如果前一個片段以強斷句標點結尾，較謹慎地合併
+                last_char = current.strip()[-1] if current.strip() else ''
+                if last_char in sentence_ending_punctuation:
+                    # 只有在合併後長度較短時才合併
+                    if len(current + sentence) > max_chars * 0.7:  # 70% 閾值
+                        should_merge = False
+                
+                # 檢查合併後是否超過限制
+                if len(current + sentence) > max_chars:
+                    should_merge = False
+            
+            if should_merge and current:
                 current += sentence
             else:
-                # 保存當前片段，開始新片段
+                # 保存當前片段（如果有）
                 if current:
                     merged.append(current)
                 current = sentence
@@ -351,7 +458,24 @@ class ImprovedHybridSubtitleGenerator:
         if current:
             merged.append(current)
         
-        return merged
+        # 二次檢查：如果有過短的片段（小於5個字符），嘗試與鄰近片段合併
+        final_merged = []
+        i = 0
+        while i < len(merged):
+            current_segment = merged[i]
+            
+            # 如果片段很短，嘗試與下一個片段合併
+            if len(current_segment) < 5 and i + 1 < len(merged):
+                next_segment = merged[i + 1]
+                if len(current_segment + next_segment) <= max_chars:
+                    final_merged.append(current_segment + next_segment)
+                    i += 2  # 跳過下一個片段
+                    continue
+            
+            final_merged.append(current_segment)
+            i += 1
+        
+        return final_merged
     
     def _force_split_long_sentence(self, sentence: str, start_time: float, end_time: float, max_chars: int) -> List[Dict]:
         """強制切分過長的句子"""
