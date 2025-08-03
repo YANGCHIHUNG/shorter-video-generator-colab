@@ -749,7 +749,7 @@ class ImprovedHybridSubtitleGenerator:
         # 過濾空句子
         sentences = [s for s in sentences if s.strip()]
         
-        return sentences
+        return sentences 
 
     def generate_subtitles_by_speech_rate(self, video_path: str, reference_texts: List[str]) -> str:
         """
