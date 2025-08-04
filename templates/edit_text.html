@@ -144,18 +144,13 @@
                 </div>
                 
                 <div id="subtitle-options" style="margin-top: 1rem; padding-left: 2rem;">
-                    <!-- 字幕生成方法選擇 -->
+                    <!-- 字幕生成設定 -->
                     <div class="form-group">
-                        <label class="form-label">🎯 字幕生成方法</label>
-                        <select name="subtitle_method" id="subtitle_method" class="form-input">
-                            <option value="speech_rate">語速計算（推薦）</option>
-                            <option value="whisper">Whisper映射</option>
-                        </select>
-                        <div class="form-help" id="method-help" style="margin-top: 0.5rem;">
-                            <strong>語速計算模式：</strong><br>
+                        <div class="alert alert-info">
+                            <strong>🎯 字幕生成方法：語速計算</strong><br>
                             ✅ 精確的時間戳計算，基於文稿內容和語速分配時間<br>
                             ✅ 快速生成，低資源消耗<br>
-                            ✅ 適合已知完整文稿的情況
+                            ✅ 標點符號智能斷句，單行顯示
                         </div>
                     </div>
                     
@@ -266,32 +261,6 @@
             subtitleOptions.classList.remove('disabled');
         } else {
             subtitleOptions.classList.add('disabled');
-        }
-    });
-
-    // Handle subtitle method selection change
-    document.getElementById('subtitle_method').addEventListener('change', function() {
-        const method = this.value;
-        const helpText = document.getElementById('method-help');
-        
-        if (method === 'speech_rate') {
-            helpText.innerHTML = `
-                <strong>語速計算模式：</strong><br>
-                ✅ 精確的時間戳計算，基於文稿內容和語速分配時間<br>
-                ✅ 快速生成，低資源消耗<br>
-                ✅ 適合已知完整文稿的情況<br>
-                📝 推薦使用於有完整演講稿的情況
-            `;
-            helpText.style.color = '#28a745';
-        } else {
-            helpText.innerHTML = `
-                <strong>Whisper映射模式：</strong><br>
-                🎙️ 基於語音識別進行文字對齊<br>
-                ⚡ 需要更多處理時間和計算資源<br>
-                🔍 適合語音內容與文稿有差異的情況<br>
-                📊 使用AI模型分析音頻內容
-            `;
-            helpText.style.color = '#007bff';
         }
     });
 
@@ -695,10 +664,8 @@
             resolution: formData.get('resolution'),
             voice: formData.get('voice'),
             enable_subtitles: formData.get('enable_subtitles') === 'on',
-            subtitle_method: formData.get('subtitle_method') || 'speech_rate',
             subtitle_style: formData.get('subtitle_style'),
-            traditional_chinese: true,  // Always enable traditional Chinese conversion
-            subtitle_length_mode: formData.get('subtitle_length_mode') || 'auto'
+            traditional_chinese: true  // Always enable traditional Chinese conversion
         };
         
         fetch('/process_with_edited_text', {

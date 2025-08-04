@@ -316,15 +316,13 @@ async def api(
     logger.info("✅ Cleanup process completed!")
 
 
-async def api_with_edited_script(video_path, pdf_file_path, edited_script, poppler_path, output_audio_dir, output_video_dir, output_text_path, resolution, tts_model, voice, enable_subtitles=False, subtitle_style="default", traditional_chinese=False, subtitle_length_mode="auto", subtitle_method="speech_rate"):
+async def api_with_edited_script(video_path, pdf_file_path, edited_script, poppler_path, output_audio_dir, output_video_dir, output_text_path, resolution, tts_model, voice, enable_subtitles=False, subtitle_style="default", traditional_chinese=False):
     """
     API function to process video with pre-edited script content
     Args:
         enable_subtitles: Whether to generate and embed subtitles
         subtitle_style: Style for subtitles ('default', 'yellow', 'white_box', 'custom')
         traditional_chinese: Whether to convert text to traditional Chinese
-        subtitle_length_mode: Length control mode for subtitles
-        subtitle_method: Method for subtitle generation ('whisper', 'speech_rate')
     """
     logger.info("🎬 Starting video processing with edited script...")
     

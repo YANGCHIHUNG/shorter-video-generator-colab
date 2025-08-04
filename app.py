@@ -715,10 +715,9 @@ def process_with_edited_text():
         TTS_model_type = request_data.get('TTS_model_type', 'edge')
         voice = request_data.get('voice', 'zh-TW-YunJheNeural')
         enable_subtitles = request_data.get('enable_subtitles', False)
-        subtitle_method = request_data.get('subtitle_method', 'speech_rate')
         subtitle_style = request_data.get('subtitle_style', 'default')
         traditional_chinese = request_data.get('traditional_chinese', False)
-        subtitle_length_mode = 'punctuation_only'  # 固定使用標點符號斷句
+        # subtitle_method 固定為語速計算，不再接受前端參數
         
         # Get saved parameters from session (with backup fallback)
         # 但首先檢查 backup 文件是否存在，如果不存在說明是新的處理會話
@@ -765,7 +764,7 @@ def process_with_edited_text():
         # Start processing with edited content
         processing_thread = threading.Thread(
             target=run_processing_with_edited_text, 
-            args=(video_path, pdf_path, edited_pages, resolution, user_folder, TTS_model_type, voice, enable_subtitles, subtitle_method, subtitle_style, traditional_chinese, subtitle_length_mode)
+            args=(video_path, pdf_path, edited_pages, resolution, user_folder, TTS_model_type, voice, enable_subtitles, subtitle_style, traditional_chinese)
         )
         processing_thread.start()
         
@@ -776,7 +775,7 @@ def process_with_edited_text():
         app.logger.error(f"Error in /process_with_edited_text: {e}", exc_info=True)
         return jsonify({"status": "error", "message": f"Server error: {e}"}), 500
 
-def run_processing_with_edited_text(video_path, pdf_path, edited_pages, resolution, user_folder, TTS_model_type, voice, enable_subtitles=False, subtitle_method="speech_rate", subtitle_style="default", traditional_chinese=False, subtitle_length_mode="punctuation_only"):
+def run_processing_with_edited_text(video_path, pdf_path, edited_pages, resolution, user_folder, TTS_model_type, voice, enable_subtitles=False, subtitle_style="default", traditional_chinese=False):
     """Background processing task with edited text"""
     process_id = datetime.now().strftime("%Y%m%d_%H%M%S")
     app_logger.info(f"✏️ 開始編輯文字處理作業 ID: {process_id}")
@@ -790,10 +789,9 @@ def run_processing_with_edited_text(video_path, pdf_path, edited_pages, resoluti
     app_logger.info(f"  - TTS 模型: {TTS_model_type}")
     app_logger.info(f"  - 語音: {voice}")
     app_logger.info(f"  - 啟用字幕: {enable_subtitles}")
-    app_logger.info(f"  - 字幕方法: {subtitle_method}")
+    app_logger.info(f"  - 字幕方法: 語速計算（固定）")
     app_logger.info(f"  - 字幕樣式: {subtitle_style}")
     app_logger.info(f"  - 繁體中文: {traditional_chinese}")
-    app_logger.info(f"  - 字幕長度模式: {subtitle_length_mode}")
     
     # 記錄每頁編輯內容的長度
     for i, page in enumerate(edited_pages):
@@ -860,10 +858,8 @@ def run_processing_with_edited_text(video_path, pdf_path, edited_pages, resoluti
             tts_model=TTS_model_type,
             voice=voice,
             enable_subtitles=enable_subtitles,
-            subtitle_method=subtitle_method,
             subtitle_style=subtitle_style,
-            traditional_chinese=traditional_chinese,
-            subtitle_length_mode=subtitle_length_mode
+            traditional_chinese=traditional_chinese
         ))
         
         end_time = datetime.now()
