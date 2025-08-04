@@ -57,14 +57,14 @@ from utility.api import *
 # Import with error handling for Colab environment
 try:
     from utility.whisper_subtitle import WhisperSubtitleGenerator
-    from utility.improved_hybrid_subtitle_generator import ImprovedHybridSubtitleGenerator
+    from utility.improved_hybrid_subtitle_generator import SpeechRateSubtitleGenerator
     SUBTITLE_AVAILABLE = True
     logger.info("✅ Subtitle functionality available")
-    logger.info("✅ Improved hybrid subtitle generator available")
+    logger.info("✅ Speech rate subtitle generator available")
 except ImportError as e:
     logger.warning(f"⚠️ Subtitle functionality not available: {e}")
     WhisperSubtitleGenerator = None
-    ImprovedHybridSubtitleGenerator = None
+    SpeechRateSubtitleGenerator = None
     SUBTITLE_AVAILABLE = False
 
 load_dotenv()
@@ -480,9 +480,9 @@ async def api_with_edited_script(video_path, pdf_file_path, edited_script, poppl
             logger.info("🎯 Processing subtitles...")
             logger.info(f"🇹🇼 Traditional Chinese parameter: {traditional_chinese}")
             
-            if not SUBTITLE_AVAILABLE or ImprovedHybridSubtitleGenerator is None:
+            if not SUBTITLE_AVAILABLE or SpeechRateSubtitleGenerator is None:
                 logger.warning("⚠️ Subtitle functionality not available. Skipping subtitle generation.")
-                logger.info("💡 To enable subtitles, install: pip install openai-whisper")
+                logger.info("💡 To enable subtitles, install required dependencies")
             else:
                 try:
                     # 準備參考文字（用於字幕校正）
@@ -513,44 +513,34 @@ async def api_with_edited_script(video_path, pdf_file_path, edited_script, poppl
                     
                     logger.info(f"🏗️ Creating hybrid subtitle generator with traditional_chinese={traditional_chinese}")
                     
-                    # 使用簡化的混合字幕生成器 - 完全使用用戶輸入文字
-                    chars_per_line = 15 if subtitle_length_mode == 'auto' else (12 if subtitle_length_mode == 'compact' else 18)
-                    hybrid_generator = ImprovedHybridSubtitleGenerator(
-                        model_size="small",  # 使用小型模型以節省資源
+                    # 使用基於語速計算的字幕生成器
+                    chars_per_line = 25  # 單行顯示，增加字符數
+                    subtitle_generator = SpeechRateSubtitleGenerator(
                         traditional_chinese=traditional_chinese,
-                        subtitle_length_mode=subtitle_length_mode,
-                        chars_per_line=chars_per_line,
-                        max_lines=2
+                        chars_per_line=chars_per_line
                     )
                     
                     # Create temporary video path for subtitle processing
                     temp_video_path = output_video_path.replace('.mp4', '_temp.mp4')
                     os.rename(output_video_path, temp_video_path)
                     
-                    # 生成混合字幕
+                    # 生成字幕（統一使用語速計算方法）
                     if reference_texts:
-                        if subtitle_method == "speech_rate":
-                            logger.info("📊 Generating subtitles using speech rate calculation...")
-                            srt_path = hybrid_generator.generate_subtitles_by_speech_rate(
-                                video_path=temp_video_path,
-                                reference_texts=reference_texts
-                            )
-                        else:  # subtitle_method == "whisper"
-                            logger.info("🎙️ Generating hybrid subtitles with Whisper + user text...")
-                            srt_path = hybrid_generator.generate_hybrid_subtitles(
-                                video_path=temp_video_path,
-                                reference_texts=reference_texts
-                            )
+                        logger.info("📊 Generating subtitles using speech rate calculation...")
+                        srt_path = subtitle_generator.generate_subtitles(
+                            video_path=temp_video_path,
+                            reference_texts=reference_texts
+                        )
                         
                         # 將字幕嵌入視頻
-                        success = hybrid_generator.embed_subtitles_in_video(
+                        success = subtitle_generator.embed_subtitles_in_video(
                             input_video_path=temp_video_path,
                             srt_path=srt_path,
                             output_video_path=output_video_path,
                             style=subtitle_style
                         )
                     else:
-                        logger.warning("⚠️ No reference texts available, falling back to Whisper-only")
+                        logger.warning("⚠️ No reference texts available, skipping subtitle generation")
                         # 回退到標準 Whisper 字幕
                         if WhisperSubtitleGenerator:
                             subtitle_generator = WhisperSubtitleGenerator(traditional_chinese=traditional_chinese)

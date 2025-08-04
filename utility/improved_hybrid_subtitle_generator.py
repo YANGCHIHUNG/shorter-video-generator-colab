@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-改進的混合字幕生成器 - 支援字幕長度控制和智能時間戳映射
+基於語速計算的字幕生成器 - 支援標點符號斷句和單行顯示
 """
 
 import os
@@ -68,41 +68,26 @@ def get_available_chinese_font():
     logger.warning(f"⚠️ 未識別的系統: {system}，使用默認字體")
     return None
 
-class ImprovedHybridSubtitleGenerator:
-    """改進的混合字幕生成器 - 智能時間戳映射和字幕長度控制"""
+class SpeechRateSubtitleGenerator:
+    """基於語速計算的字幕生成器 - 標點符號斷句"""
     
-    def __init__(self, model_size: str = "small", traditional_chinese: bool = False, subtitle_length_mode: str = "punctuation_only", chars_per_line: int = 25, max_lines: int = 1):
+    def __init__(self, traditional_chinese: bool = False, chars_per_line: int = 25):
         """
-        初始化混合字幕生成器 - 單行標點符號斷句模式
+        初始化字幕生成器 - 單行標點符號斷句模式
         
         Args:
-            model_size: Whisper 模型大小 ("tiny", "small", "medium", "large")
             traditional_chinese: 是否使用繁體中文
-            subtitle_length_mode: 固定使用標點符號斷句
             chars_per_line: 每行最大字數（單行模式）
-            max_lines: 固定為1行
         """
-        self.model_size = model_size
         self.traditional_chinese = traditional_chinese
-        self.subtitle_length_mode = 'punctuation_only'  # 固定使用標點符號斷句
-        self._whisper_model = None
         
-        # 設置字幕顯示參數 - 強制單行顯示，增加字符數
-        self.chars_per_line = 25  # 增加到25字，因為只有一行
+        # 設置字幕顯示參數 - 強制單行顯示
+        self.chars_per_line = chars_per_line
         self.max_lines = 1  # 強制只有一行
         self.min_display_time = 1.5  # 最小顯示時間（秒）
         
-        # 固定使用標點符號斷句，不提供其他選項
-        logger.info(f"📏 字幕配置: 標點符號斷句 - 每行{self.chars_per_line}字，單行顯示")
-        
-        # 導入所需模組
-        try:
-            import whisper
-            self.whisper = whisper
-            logger.info(f"✅ Whisper 模組載入成功，模型大小: {model_size}")
-        except ImportError:
-            logger.error("❌ 無法導入 Whisper 模組")
-            raise ImportError("需要安裝 openai-whisper: pip install openai-whisper")
+        # 字幕生成器配置
+        logger.info(f"📏 字幕生成器配置: 語速計算 + 標點符號斷句 - 每行{self.chars_per_line}字，單行顯示")
         
         # 中文轉換模組（可選）
         try:
@@ -113,39 +98,6 @@ class ImprovedHybridSubtitleGenerator:
             logger.warning("⚠️ 中文轉換模組未安裝，將跳過繁簡轉換")
             self.zhconv = None
     
-    
-    def get_whisper_model(self):
-        """獲取 Whisper 模型實例"""
-        if self._whisper_model is None:
-            try:
-                logger.info(f"🔄 正在載入 Whisper 模型: {self.model_size}")
-                self._whisper_model = self.whisper.load_model(self.model_size)
-                logger.info(f"✅ Whisper 模型載入完成: {self.model_size}")
-            except Exception as e:
-                logger.error(f"❌ 載入 Whisper 模型失敗: {e}")
-                raise e
-        return self._whisper_model
-    
-    def transcribe_audio(self, audio_path: str) -> List[Dict]:
-        """使用 Whisper 轉錄音頻並獲取時間戳"""
-        try:
-            model = self.get_whisper_model()
-            logger.info(f"🎙️ 開始轉錄音頻: {audio_path}")
-            
-            result = model.transcribe(
-                audio_path,
-                word_timestamps=True,
-                verbose=False
-            )
-            
-            segments = result.get("segments", [])
-            logger.info(f"✅ 音頻轉錄完成，獲得 {len(segments)} 個片段")
-            
-            return segments
-            
-        except Exception as e:
-            logger.error(f"❌ 音頻轉錄失敗: {e}")
-            raise e
     
     def _smart_split_text_into_sentences(self, text: str) -> List[str]:
         """智能中文分句"""
@@ -518,9 +470,9 @@ class ImprovedHybridSubtitleGenerator:
         
         return f"{hours:02d}:{minutes:02d}:{seconds_int:02d},{milliseconds:03d}"
     
-    def generate_hybrid_subtitles(self, video_path: str, reference_texts: List[str]) -> str:
+    def generate_subtitles(self, video_path: str, reference_texts: List[str]) -> str:
         """
-        生成混合字幕 - 完全使用用戶輸入文字，僅從Whisper獲取時間軸
+        生成字幕 - 使用語速計算方法
         
         Args:
             video_path: 視頻文件路徑
@@ -530,36 +482,14 @@ class ImprovedHybridSubtitleGenerator:
             SRT 字幕文件路徑
         """
         try:
-            logger.info(f"🎬 開始生成混合字幕，視頻: {video_path}")
+            logger.info(f"🎬 開始生成字幕（語速計算），視頻: {video_path}")
             logger.info(f"📄 參考文字頁數: {len(reference_texts)}")
             
-            # 從視頻提取音頻
-            audio_path = self._extract_audio_from_video(video_path)
-            
-            # 使用 Whisper 轉錄音頻獲取時間戳（僅用於時間軸）
-            whisper_segments = self.transcribe_audio(audio_path)
-            
-            # 直接映射用戶文字到時間軸（不進行錯字檢測或修正）
-            mapped_segments = self._simple_map_user_text_to_timeline(whisper_segments, reference_texts)
-            
-            # 生成 SRT 內容
-            srt_content = self._generate_srt_content(mapped_segments)
-            
-            # 保存 SRT 文件
-            srt_path = video_path.replace('.mp4', '_hybrid.srt')
-            with open(srt_path, 'w', encoding='utf-8') as f:
-                f.write(srt_content)
-            
-            logger.info(f"✅ 混合字幕生成完成: {srt_path}")
-            
-            # 清理臨時音頻文件
-            if os.path.exists(audio_path):
-                os.remove(audio_path)
-            
-            return srt_path
+            # 直接使用語速計算方法生成字幕
+            return self.generate_subtitles_by_speech_rate(video_path, reference_texts)
             
         except Exception as e:
-            logger.error(f"❌ 混合字幕生成失敗: {e}")
+            logger.error(f"❌ 字幕生成失敗: {e}")
             raise e
     
     def _extract_audio_from_video(self, video_path: str) -> str:
@@ -590,129 +520,6 @@ class ImprovedHybridSubtitleGenerator:
         except Exception as e:
             logger.error(f"❌ 音頻提取失敗: {e}")
             raise e
-    
-    def _simple_map_user_text_to_timeline(self, whisper_segments: List[Dict], reference_texts) -> List[Dict]:
-        """
-        精確映射：利用標點符號切割，將Whisper句子一對一替換為用戶文字
-        
-        流程：
-        A. 用戶輸入文字 → B. Whisper語音識別 → C. 獲取時間戳 → 
-        D. 利用標點符號切割句子，一對一替換 → E. 生成SRT → F. 嵌入視頻
-        """
-        mapped_segments = []
-        
-        if not whisper_segments or not reference_texts:
-            logger.warning("⚠️ Whisper片段或用戶文字為空")
-            return mapped_segments
-        
-        # 處理單一字串的情況
-        if isinstance(reference_texts, str):
-            reference_texts = [reference_texts]
-        
-        logger.info(f"🧠 開始精確映射：{len(reference_texts)} 個用戶文字 → {len(whisper_segments)} 個 Whisper 片段")
-        
-        # 第一步：將所有用戶文字按標點符號切割成句子
-        all_user_sentences = []
-        for page_index, page_text in enumerate(reference_texts):
-            if page_text and page_text.strip():
-                sentences = self._split_sentences_by_punctuation(page_text.strip())
-                for sentence in sentences:
-                    if sentence.strip():
-                        all_user_sentences.append({
-                            'text': sentence.strip(),
-                            'page_index': page_index + 1
-                        })
-        
-        logger.info(f"📝 用戶文字切割結果: {len(all_user_sentences)} 個句子")
-        for i, sentence in enumerate(all_user_sentences):
-            logger.info(f"  用戶句子 {i+1}: '{sentence['text'][:30]}...'")
-        
-        # 第二步：將所有Whisper片段也按標點符號切割
-        all_whisper_sentences = []
-        for whisper_seg in whisper_segments:
-            whisper_text = whisper_seg['text'].strip()
-            # 檢查Whisper片段是否包含標點符號，如果包含則切割
-            sentences = self._split_sentences_by_punctuation(whisper_text)
-            
-            if len(sentences) <= 1:
-                # 沒有標點符號，整段作為一個句子
-                all_whisper_sentences.append({
-                    'text': whisper_text,
-                    'start': whisper_seg['start'],
-                    'end': whisper_seg['end'],
-                    'original_segment': whisper_seg
-                })
-            else:
-                # 有標點符號，按句子切割並按比例分配時間
-                total_duration = whisper_seg['end'] - whisper_seg['start']
-                sentence_count = len(sentences)
-                time_per_sentence = total_duration / sentence_count
-                
-                for j, sentence in enumerate(sentences):
-                    if sentence.strip():
-                        start_time = whisper_seg['start'] + (j * time_per_sentence)
-                        end_time = whisper_seg['start'] + ((j + 1) * time_per_sentence)
-                        
-                        all_whisper_sentences.append({
-                            'text': sentence.strip(),
-                            'start': start_time,
-                            'end': end_time,
-                            'original_segment': whisper_seg
-                        })
-        
-        logger.info(f"🎙️ Whisper文字切割結果: {len(all_whisper_sentences)} 個句子")
-        for i, sentence in enumerate(all_whisper_sentences):
-            logger.info(f"  Whisper句子 {i+1}: {sentence['start']:.2f}s-{sentence['end']:.2f}s: '{sentence['text'][:30]}...'")
-        
-        # 第三步：一對一替換 - 使用Whisper的時間戳 + 用戶的文字
-        mapping_count = min(len(all_user_sentences), len(all_whisper_sentences))
-        logger.info(f"🔄 執行一對一映射，共 {mapping_count} 對")
-        
-        for i in range(mapping_count):
-            user_sentence = all_user_sentences[i]
-            whisper_sentence = all_whisper_sentences[i]
-            
-            # 使用Whisper的精確時間戳 + 用戶的文字內容
-            final_text = self._convert_chinese(user_sentence['text'])
-            
-            mapped_segments.append({
-                "start": whisper_sentence['start'],      # ✅ 使用Whisper時間戳
-                "end": whisper_sentence['end'],          # ✅ 使用Whisper時間戳
-                "text": final_text,                      # ✅ 使用用戶文字
-                "source": "one_to_one_replacement",      # 標記為一對一替換
-                "page_index": user_sentence['page_index'],
-                "original_whisper": whisper_sentence['text']  # 保留原始Whisper文字供調試
-            })
-            
-            logger.info(f"  📝 映射 {i+1}: {whisper_sentence['start']:.2f}s-{whisper_sentence['end']:.2f}s")
-            logger.info(f"    原Whisper: '{whisper_sentence['text'][:25]}...'")
-            logger.info(f"    替換用戶: '{final_text[:25]}...'")
-        
-        # 處理剩餘的句子（如果用戶文字比Whisper多）
-        if len(all_user_sentences) > len(all_whisper_sentences):
-            logger.warning(f"⚠️ 用戶句子比Whisper多 {len(all_user_sentences) - len(all_whisper_sentences)} 個，將被忽略")
-            for i in range(len(all_whisper_sentences), len(all_user_sentences)):
-                logger.warning(f"  忽略用戶句子: '{all_user_sentences[i]['text'][:30]}...'")
-        
-        # 處理剩餘的Whisper片段（如果Whisper比用戶文字多）
-        elif len(all_whisper_sentences) > len(all_user_sentences):
-            logger.warning(f"⚠️ Whisper句子比用戶多 {len(all_whisper_sentences) - len(all_user_sentences)} 個，將保留原始文字")
-            for i in range(len(all_user_sentences), len(all_whisper_sentences)):
-                whisper_sentence = all_whisper_sentences[i]
-                
-                mapped_segments.append({
-                    "start": whisper_sentence['start'],
-                    "end": whisper_sentence['end'],
-                    "text": self._convert_chinese(whisper_sentence['text']),  # 使用Whisper原始文字
-                    "source": "whisper_only",
-                    "page_index": 0,
-                    "original_whisper": whisper_sentence['text']
-                })
-                
-                logger.warning(f"  保留Whisper: {whisper_sentence['start']:.2f}s-{whisper_sentence['end']:.2f}s: '{whisper_sentence['text'][:30]}...'")
-        
-        logger.info(f"✅ 精確映射完成，生成 {len(mapped_segments)} 個字幕片段")
-        return mapped_segments
     
     def _split_sentences_by_punctuation(self, text: str) -> List[str]:
         """
@@ -802,12 +609,12 @@ class ImprovedHybridSubtitleGenerator:
             # 生成 SRT 內容
             srt_content = self._generate_srt_content(adjusted_segments)
             
-            # 保存 SRT 文件
-            srt_path = video_path.replace('.mp4', '_speech_rate.srt')
+            # 保存 SRT 文件（使用統一的命名）
+            srt_path = video_path.replace('.mp4', '_subtitles.srt')
             with open(srt_path, 'w', encoding='utf-8') as f:
                 f.write(srt_content)
             
-            logger.info(f"✅ 基於語速的字幕生成完成: {srt_path}")
+            logger.info(f"✅ 字幕生成完成: {srt_path}")
             
             # 清理臨時音頻文件
             if os.path.exists(audio_path):
