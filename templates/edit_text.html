@@ -144,33 +144,8 @@
                 </div>
                 
                 <div id="subtitle-options" style="margin-top: 1rem; padding-left: 2rem;">
-                    <!-- 字幕生成設定 -->
-                    <div class="form-group">
-                        <div class="alert alert-info">
-                            <strong>🎯 字幕生成方法：語速計算</strong><br>
-                            ✅ 精確的時間戳計算，基於文稿內容和語速分配時間<br>
-                            ✅ 快速生成，低資源消耗<br>
-                            ✅ 標點符號智能斷句，單行顯示
-                        </div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">Subtitle Style</label>
-                        <select name="subtitle_style" class="form-input">
-                            <option value="default">Default (white text, black outline)</option>
-                            <option value="yellow">Yellow text, black outline</option>
-                            <option value="white_box">White text, black background box</option>
-                            <option value="custom">Custom style</option>
-                        </select>
-                    </div>
-                    
-                    <!-- 字幕設定說明 -->
-                    <div class="form-group" style="margin-top: 1rem;">
-                        <div class="alert alert-info">
-                            <strong>🎬 字幕設定</strong><br>
-                            系統將使用標點符號智能斷句，並以單行顯示字幕，確保最佳觀看體驗。
-                        </div>
-                    </div>
+                    <!-- Hidden input for default subtitle style -->
+                    <input type="hidden" name="subtitle_style" value="default">
                     
                     <!-- Traditional Chinese conversion is now enabled by default -->
                     <!-- Checkbox removed as requested -->
