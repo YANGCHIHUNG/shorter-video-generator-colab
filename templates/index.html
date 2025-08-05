@@ -7,7 +7,7 @@
 <div style="text-align: center; margin-bottom: 4rem;">
     <h1>🎬 AI Video Generator</h1>
     <p class="subtitle">
-        Transform your videos and PDFs into engaging content with AI-powered processing
+        Transform your PDFs into engaging video content with AI-powered processing
     </p>
 </div>
 
@@ -16,27 +16,12 @@
         <div class="card-header">
             <h2 style="margin: 0;">📤 Upload Your Files</h2>
             <p style="color: var(--text-secondary); margin: 0.5rem 0 0 0;">
-                Upload your video and PDF files to get started
+                Upload your PDF file to get started
             </p>
         </div>
         
         <div class="card-body">
             <form id="upload-form" enctype="multipart/form-data">
-                <!-- Video Upload -->
-                <div class="file-upload-container">
-                    <label class="form-label">
-                        🎥 Upload Video (MP4) - Optional
-                    </label>
-                    <div class="file-upload" id="video-upload">
-                        <input type="file" name="video" id="video" accept=".mp4" 
-                               onchange="updateFileName(this, 'video-name', 'video-upload')">
-                        <div class="file-upload-icon">📹</div>
-                        <div class="file-upload-text">Choose Video File</div>
-                        <div class="file-upload-subtext">MP4 files up to 100MB</div>
-                    </div>
-                    <div id="video-name" class="file-name">No file chosen</div>
-                </div>
-
                 <!-- PDF Upload -->
                 <div class="file-upload-container">
                     <label class="form-label">
@@ -147,7 +132,7 @@
             const fileSize = (file.size / (1024 * 1024)).toFixed(2); // MB
             
             // Validate file size
-            const maxSize = input.accept.includes('.mp4') ? 100 : 50; // MB
+            const maxSize = 50; // MB for PDF
             if (!validateFileSize(file, maxSize)) {
                 fileNameElement.textContent = `File too large (${fileSize}MB). Max: ${maxSize}MB`;
                 fileNameElement.style.color = 'var(--error-500)';

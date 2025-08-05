@@ -92,7 +92,6 @@ def ensure_directories_exist(*dirs):
             logger.info(f"📁 Created missing directory: {directory}")
 
 async def api(
-    video_path: str,
     pdf_file_path: str,
     poppler_path: str,
     output_audio_dir: str,
@@ -115,25 +114,9 @@ async def api(
     TARGET_WIDTH, TARGET_HEIGHT = RESOLUTION_MAP[resolution]
     logger.info(f"📏 Selected Resolution: {resolution}p ({TARGET_WIDTH}x{TARGET_HEIGHT})")
 
-    if video_path is None:
-        logger.info("No MP4 passed in. Go on processing without video.")
-        script = "No video for this file. Please use the passage only to generate."
-    else:
-        # Step 1: Convert MP4 to MP3
-        logger.info(f"🎵 Converting MP4 to MP3: {video_path}")
-        try:
-            audio = convert_mp4_to_mp3(video_path)
-        except Exception as e:
-            logger.error(f"❌ Error converting MP4 to MP3: {e}", exc_info=True)
-            raise
-
-        # Step 2: Transcribe the audio
-        logger.info("📝 Transcribing audio to text...")
-        try:
-            script = transcribe_audio(audio, model_size="base")['text']
-        except Exception as e:
-            logger.error(f"❌ Error during audio transcription: {e}", exc_info=True)
-            raise
+    # No video processing - use PDF content only
+    logger.info("Processing PDF content without video input.")
+    script = "No video for this file. Please use the passage only to generate."
 
     if extra_prompt:
         logger.info(f"📝 Adding extra prompt to script: {extra_prompt}")
@@ -316,7 +299,7 @@ async def api(
     logger.info("✅ Cleanup process completed!")
 
 
-async def api_with_edited_script(video_path, pdf_file_path, edited_script, poppler_path, output_audio_dir, output_video_dir, output_text_path, resolution, tts_model, voice, enable_subtitles=False, subtitle_style="default", traditional_chinese=False):
+async def api_with_edited_script(pdf_file_path, edited_script, poppler_path, output_audio_dir, output_video_dir, output_text_path, resolution, tts_model, voice, enable_subtitles=False, subtitle_style="default", traditional_chinese=False):
     """
     API function to process video with pre-edited script content
     Args:
@@ -579,8 +562,7 @@ async def api_generate_text_only(
     pdf_file_path: str,
     poppler_path: str,
     num_of_pages="all",
-    extra_prompt: str = None,
-    video_path: str = None
+    extra_prompt: str = None
 ):
     """
     Generate text responses from PDF without creating audio or video.
@@ -588,19 +570,9 @@ async def api_generate_text_only(
     """
     logger.info("📝 Starting text generation process...")
     
-    # Process video if provided
-    if video_path is None:
-        logger.info("No MP4 passed in. Go on processing without video.")
-        script = "No video for this file. Please use the passage only to generate."
-    else:
-        # Convert MP4 to MP3 and transcribe
-        logger.info(f"🎵 Converting MP4 to MP3: {video_path}")
-        try:
-            audio = convert_mp4_to_mp3(video_path)
-            script = transcribe_audio(audio, model_size="base")['text']
-        except Exception as e:
-            logger.error(f"❌ Error processing video: {e}", exc_info=True)
-            raise
+    # No video processing - use PDF content only
+    logger.info("Processing PDF content without video input.")
+    script = "No video for this file. Please use the passage only to generate."
 
     # Add extra prompt if provided
     if extra_prompt:

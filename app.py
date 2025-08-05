@@ -151,7 +151,7 @@ def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in app.config["ALLOWED_EXTENSIONS"]
 
 # ✅ Background Processing Task
-def run_processing(video_path, pdf_path, num_of_pages, resolution, user_folder, TTS_model_type, extra_prompt, voice):
+def run_processing(pdf_path, num_of_pages, resolution, user_folder, TTS_model_type, extra_prompt, voice):
     """背景處理任務，只記錄重要信息"""
     process_id = datetime.now().strftime("%Y%m%d_%H%M%S")
     print(f"🚀 開始處理作業 ID: {process_id}")  # 使用print代替日誌
@@ -188,7 +188,6 @@ def run_processing(video_path, pdf_path, num_of_pages, resolution, user_folder, 
             start_time = datetime.now()
             
             loop.run_until_complete(api(
-                video_path=video_path,
                 pdf_file_path=pdf_path,
                 poppler_path=None,
                 output_audio_dir=os.path.join(user_folder, 'audio'),
@@ -262,7 +261,6 @@ def run_processing(video_path, pdf_path, num_of_pages, resolution, user_folder, 
         f.write("processing")
     try:
         loop.run_until_complete(api(
-            video_path=video_path,
             pdf_file_path=pdf_path,
             poppler_path=None,
             output_audio_dir=os.path.join(user_folder, 'audio'),
@@ -314,7 +312,6 @@ def process_video():
             else:
                 app_logger.info(f"  - {key}: None")
         
-        video_file = request.files.get("video")
         pdf_file = request.files.get("pdf")
         resolution = request.form.get("resolution")
         num_of_pages = request.form.get('num_of_pages')
@@ -325,23 +322,6 @@ def process_video():
         if not pdf_file:
             app_logger.warning(f"⚠️ 請求 {request_id} - 沒有上傳 PDF 檔案")
             return jsonify({"status": "error", "message": "⚠️ Please upload a PDF file."}), 400
-
-        # 處理視頻檔案
-        video_path = None
-        if video_file and video_file.filename != "":
-            video_filename = secure_filename(video_file.filename)
-            video_path = os.path.join(user_folder, video_filename)
-            app_logger.info(f"💾 儲存視頻檔案: {video_path}")
-            
-            try:
-                video_file.save(video_path)
-                file_size = os.path.getsize(video_path) / (1024 * 1024)  # MB
-                app_logger.info(f"✅ 視頻檔案儲存成功: {file_size:.2f} MB")
-            except Exception as save_error:
-                app_logger.error(f"❌ 視頻檔案儲存失敗: {save_error}")
-                raise
-        else:
-            app_logger.info(f"📝 沒有上傳視頻檔案，僅處理 PDF")
 
         # 處理PDF檔案
         pdf_filename = secure_filename(pdf_file.filename)
@@ -360,7 +340,7 @@ def process_video():
         app_logger.info(f"🚀 啟動背景處理線程...")
         processing_thread = threading.Thread(
             target=run_processing, args=(
-                video_path, pdf_path, num_of_pages, resolution, user_folder, TTS_model_type, extra_prompt, voice
+                pdf_path, num_of_pages, resolution, user_folder, TTS_model_type, extra_prompt, voice
             )
         )
         processing_thread.start()
@@ -501,7 +481,6 @@ def generate_text():
                 app_logger.info(f"  - {key}: {value}")
         
         pdf_file = request.files.get("pdf")
-        video_file = request.files.get("video")
         extra_prompt = request.form.get("extra_prompt")
         
         # Get video generation parameters from first stage
@@ -527,21 +506,6 @@ def generate_text():
             app_logger.error(f"❌ PDF 檔案儲存失敗: {save_error}")
             raise
 
-        # Save video file if provided
-        video_path = None
-        if video_file and video_file.filename != '':
-            video_filename = secure_filename(video_file.filename)
-            video_path = os.path.join(user_folder, video_filename)
-            app_logger.info(f"💾 儲存視頻檔案: {video_path}")
-            
-            try:
-                video_file.save(video_path)
-                file_size = os.path.getsize(video_path) / (1024 * 1024)  # MB
-                app_logger.info(f"✅ 視頻檔案儲存成功: {file_size:.2f} MB")
-            except Exception as save_error:
-                app_logger.error(f"❌ 視頻檔案儲存失敗: {save_error}")
-                raise
-
         # Generate text using the new API function
         app_logger.info(f"🎯 開始呼叫文字生成 API...")
         
@@ -556,8 +520,7 @@ def generate_text():
                     pdf_file_path=pdf_path,
                     poppler_path=None,  # Use system-installed Poppler
                     num_of_pages=num_of_pages,
-                    extra_prompt=extra_prompt if extra_prompt else None,
-                    video_path=video_path
+                    extra_prompt=extra_prompt if extra_prompt else None
                 )
             )
             
@@ -574,7 +537,6 @@ def generate_text():
             session_data = {
                 'generated_pages': generated_pages,
                 'pdf_path': pdf_path,
-                'video_path': video_path,
                 'extra_prompt': extra_prompt,
                 'num_of_pages': num_of_pages,
                 'TTS_model_type': TTS_model_type,
@@ -605,7 +567,7 @@ def generate_text():
                 app_logger.info(f"✅ Session 數據驗證通過: {stored_pdf_path}")
             
             # Debug logging
-            app_logger.info(f"📊 Session 摘要 - PDF: {pdf_path}, Video: {video_path}, 頁數: {len(generated_pages)}")
+            app_logger.info(f"📊 Session 摘要 - PDF: {pdf_path}, 頁數: {len(generated_pages)}")
             app_logger.info(f"🔑 Session keys: {list(session.keys())}")
             
             app_logger.info(f"✅ 請求 {request_id} 文字生成完成")
@@ -691,11 +653,10 @@ def process_with_edited_text():
             return jsonify({"status": "error", "message": "Session expired, please upload PDF again"}), 400
         
         pdf_path = get_session_data('pdf_path')
-        video_path = get_session_data('video_path')
         extra_prompt = get_session_data('extra_prompt')
         
         # Enhanced debug logging
-        app.logger.info(f"Session data - PDF: {pdf_path}, Video: {video_path}, Pages: {len(edited_pages) if edited_pages else 0}")
+        app.logger.info(f"Session data - PDF: {pdf_path}, Pages: {len(edited_pages) if edited_pages else 0}")
         app.logger.info(f"Session keys: {list(session.keys())}")
         app.logger.info(f"Request data keys: {list(request_data.keys())}")
         
@@ -728,7 +689,7 @@ def process_with_edited_text():
         # Start processing with edited content
         processing_thread = threading.Thread(
             target=run_processing_with_edited_text, 
-            args=(video_path, pdf_path, edited_pages, resolution, user_folder, TTS_model_type, voice, enable_subtitles, subtitle_style, traditional_chinese)
+            args=(pdf_path, edited_pages, resolution, user_folder, TTS_model_type, voice, enable_subtitles, subtitle_style, traditional_chinese)
         )
         processing_thread.start()
         
@@ -739,14 +700,13 @@ def process_with_edited_text():
         app.logger.error(f"Error in /process_with_edited_text: {e}", exc_info=True)
         return jsonify({"status": "error", "message": f"Server error: {e}"}), 500
 
-def run_processing_with_edited_text(video_path, pdf_path, edited_pages, resolution, user_folder, TTS_model_type, voice, enable_subtitles=False, subtitle_style="default", traditional_chinese=False):
+def run_processing_with_edited_text(pdf_path, edited_pages, resolution, user_folder, TTS_model_type, voice, enable_subtitles=False, subtitle_style="default", traditional_chinese=False):
     """Background processing task with edited text"""
     process_id = datetime.now().strftime("%Y%m%d_%H%M%S")
     app_logger.info(f"✏️ 開始編輯文字處理作業 ID: {process_id}")
     
     # Add debug logging for parameters
     app_logger.info(f"📊 處理參數詳情:")
-    app_logger.info(f"  - 視頻路徑: {video_path}")
     app_logger.info(f"  - PDF 路徑: {pdf_path}")
     app_logger.info(f"  - 編輯頁數: {len(edited_pages)}")
     app_logger.info(f"  - 解析度: {resolution}")
@@ -811,7 +771,6 @@ def run_processing_with_edited_text(video_path, pdf_path, edited_pages, resoluti
         start_time = datetime.now()
         
         loop.run_until_complete(api_with_edited_script(
-            video_path=video_path,
             pdf_file_path=pdf_path,
             edited_script=edited_script,
             poppler_path=None,  # Use system-installed Poppler
