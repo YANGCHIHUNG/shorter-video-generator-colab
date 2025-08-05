@@ -21,15 +21,15 @@ import logging
 from datetime import datetime
 import traceback
 
-# ✅ 設置詳細的日誌系統
+# ✅ 設置簡化的日誌系統
 def setup_logging():
-    """設置詳細的日誌配置"""
+    """設置簡化的日誌配置"""
     # 創建日誌格式
-    log_format = '%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s'
+    log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     
-    # 配置根日誌記錄器
+    # 配置根日誌記錄器（只顯示WARNING及以上級別）
     logging.basicConfig(
-        level=logging.INFO,
+        level=logging.WARNING,
         format=log_format,
         handlers=[
             logging.FileHandler('app.log', encoding='utf-8'),
@@ -37,9 +37,14 @@ def setup_logging():
         ]
     )
     
-    # 創建專用的日誌記錄器
+    # 設置第三方庫的日誌級別
+    logging.getLogger('werkzeug').setLevel(logging.ERROR)  # 隱藏Flask HTTP請求日誌
+    logging.getLogger('pyngrok').setLevel(logging.ERROR)   # 隱藏ngrok日誌
+    logging.getLogger('httpx').setLevel(logging.ERROR)     # 隱藏HTTP請求日誌
+    
+    # 創建專用的日誌記錄器（只顯示重要信息）
     logger = logging.getLogger('ShorterVideoGenerator')
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.WARNING)
     
     return logger
 
@@ -54,7 +59,6 @@ def ensure_chinese_font_support():
     
     try:
         system = platform.system().lower()
-        app_logger.info(f"🔤 檢查字體支援，系統: {system}")
         
         if system == "linux":
             # 在Linux系統中檢查和安裝中文字體
@@ -67,23 +71,19 @@ def ensure_chinese_font_support():
             fonts_found = [path for path in font_paths if os.path.exists(path)]
             
             if fonts_found:
-                app_logger.info(f"✅ 找到中文字體支援: {fonts_found[0]}")
                 return True
             else:
-                app_logger.warning("⚠️ 未找到中文字體，嘗試安裝...")
                 try:
                     # 嘗試安裝字體
                     subprocess.run(['apt-get', 'update'], check=False, capture_output=True)
                     subprocess.run(['apt-get', 'install', '-y', 'fonts-noto-cjk'], check=False, capture_output=True)
                     subprocess.run(['fc-cache', '-f', '-v'], check=False, capture_output=True)
-                    app_logger.info("✅ 嘗試安裝中文字體完成")
                     return True
                 except Exception as e:
                     app_logger.warning(f"⚠️ 字體安裝失敗: {e}")
                     return False
         else:
             # Windows/macOS 通常有基本字體支援
-            app_logger.info("✅ 非Linux系統，假設有字體支援")
             return True
             
     except Exception as e:
@@ -117,27 +117,21 @@ app.config["SESSION_TYPE"] = "filesystem"
 app.config["SESSION_PERMANENT"] = False
 app.config["SESSION_USE_SIGNER"] = True
 
-# ✅ 日誌中間件
+# ✅ 簡化的日誌中間件（僅記錄錯誤）
 @app.before_request
 def log_request_info():
-    """記錄每個請求的詳細信息"""
-    app_logger.info(f"🌐 Request: {request.method} {request.url}")
-    app_logger.info(f"📱 User-Agent: {request.headers.get('User-Agent', 'Unknown')}")
-    app_logger.info(f"🔗 Referrer: {request.headers.get('Referer', 'Direct')}")
+    """僅記錄重要的請求信息"""
+    # 只記錄POST請求和錯誤
     if request.method == 'POST':
-        app_logger.info(f"📦 Content-Type: {request.headers.get('Content-Type', 'Unknown')}")
-        if request.is_json:
-            app_logger.info(f"📋 JSON Data Keys: {list(request.json.keys()) if request.json else 'None'}")
-        if request.form:
-            app_logger.info(f"📝 Form Data Keys: {list(request.form.keys())}")
-        if request.files:
-            app_logger.info(f"📁 Files: {list(request.files.keys())}")
+        app_logger.debug(f"POST請求: {request.endpoint}")
 
 @app.after_request
 def log_response_info(response):
-    """記錄每個響應的詳細信息"""
-    app_logger.info(f"📤 Response: {response.status_code} - {response.status}")
-    app_logger.info(f"📊 Response Size: {response.content_length or 'Unknown'} bytes")
+    """僅記錄錯誤響應"""
+    # 只記錄錯誤響應
+    if response.status_code >= 400:
+        app_logger.error(f"錯誤響應: {response.status_code} - {request.url}")
+    return response
     return response
 
 # ✅ Get absolute paths relative to the script directory
@@ -158,26 +152,17 @@ def allowed_file(filename):
 
 # ✅ Background Processing Task
 def run_processing(video_path, pdf_path, num_of_pages, resolution, user_folder, TTS_model_type, extra_prompt, voice):
-    """背景處理任務，包含詳細日誌"""
+    """背景處理任務，只記錄重要信息"""
     process_id = datetime.now().strftime("%Y%m%d_%H%M%S")
-    app_logger.info(f"🚀 開始處理作業 ID: {process_id}")
-    app_logger.info(f"📄 PDF路徑: {pdf_path}")
-    app_logger.info(f"🎬 視頻路徑: {video_path}")
-    app_logger.info(f"📊 參數 - 頁數: {num_of_pages}, 解析度: {resolution}, TTS: {TTS_model_type}, 語音: {voice}")
-    app_logger.info(f"💬 額外提示: {extra_prompt[:100] if extra_prompt else 'None'}...")
+    print(f"🚀 開始處理作業 ID: {process_id}")  # 使用print代替日誌
     
     try:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        app_logger.info(f"⚙️ 事件循環已設置")
         
         # 🧹 清理舊檔案：在開始新處理前清除所有舊的輸出檔案
         video_folder = os.path.join(user_folder, 'video')
         audio_folder = os.path.join(user_folder, 'audio')
-        
-        app_logger.info(f"🗑️ 開始清理舊檔案...")
-        app_logger.info(f"🗑️ 視頻資料夾: {video_folder}")
-        app_logger.info(f"🗑️ 音頻資料夾: {audio_folder}")
         
         # 刪除舊的影片和音檔
         deleted_folders = []
@@ -185,28 +170,21 @@ def run_processing(video_path, pdf_path, num_of_pages, resolution, user_folder, 
             if os.path.exists(folder):
                 try:
                     import shutil
-                    file_count = len(os.listdir(folder)) if os.path.exists(folder) else 0
-                    app_logger.info(f"🗑️ 清理 {folder} - 包含 {file_count} 個檔案")
                     shutil.rmtree(folder)
                     deleted_folders.append(folder)
-                    app_logger.info(f"✅ 成功清理: {folder}")
                 except Exception as e:
                     app_logger.error(f"❌ 清理失敗 {folder}: {e}")
         
         # 重新建立資料夾
         os.makedirs(video_folder, exist_ok=True)
         os.makedirs(audio_folder, exist_ok=True)
-        app_logger.info(f"📁 重新建立資料夾完成")
         
         status_file = os.path.join(video_folder, "processing.txt")
-        app_logger.info(f"📝 狀態檔案: {status_file}")
         
         with open(status_file, "w") as f:
             f.write("processing")
-        app_logger.info(f"✅ 狀態檔案已建立")
         
         try:
-            app_logger.info(f"🎯 開始呼叫 API 函數...")
             start_time = datetime.now()
             
             loop.run_until_complete(api(
@@ -225,28 +203,19 @@ def run_processing(video_path, pdf_path, num_of_pages, resolution, user_folder, 
             
             end_time = datetime.now()
             processing_time = (end_time - start_time).total_seconds()
-            app_logger.info(f"⏱️ API 處理完成，耗時: {processing_time:.2f} 秒")
+            print(f"⏱️ 處理完成，耗時: {processing_time:.2f} 秒")
             
             # ✅ 立即刪除處理狀態檔案，讓用戶可以下載影片
             if os.path.exists(status_file):
                 os.remove(status_file)
-                app_logger.info(f"🗑️ 狀態檔案已刪除")
             
             # 檢查輸出檔案
             video_files = [f for f in os.listdir(video_folder) if f.endswith('.mp4')] if os.path.exists(video_folder) else []
-            audio_files = [f for f in os.listdir(audio_folder) if f.endswith('.mp3')] if os.path.exists(audio_folder) else []
-            
-            app_logger.info(f"📊 處理結果統計:")
-            app_logger.info(f"  - 視頻檔案: {len(video_files)} 個")
-            app_logger.info(f"  - 音頻檔案: {len(audio_files)} 個")
             
             if video_files:
-                for video_file in video_files:
-                    video_path_full = os.path.join(video_folder, video_file)
-                    file_size = os.path.getsize(video_path_full) / (1024 * 1024)  # MB
-                    app_logger.info(f"  - {video_file}: {file_size:.2f} MB")
-            
-            app_logger.info(f"✅ 作業 {process_id} 處理完成!")
+                print(f"✅ 作業 {process_id} 完成，生成 {len(video_files)} 個檔案")
+            else:
+                print(f"⚠️ 作業 {process_id} 完成，但未找到輸出檔案")
             
         except Exception as api_error:
             app_logger.error(f"❌ API 呼叫失敗: {api_error}")
