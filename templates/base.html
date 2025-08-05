@@ -26,9 +26,6 @@
                 <a href="{{ url_for('index') }}" class="nav-link {% if request.endpoint == 'index' %}active{% endif %}" role="menuitem">
                     🏠 Home
                 </a>
-                <a href="{{ url_for('documentation') }}" class="nav-link {% if request.endpoint == 'documentation' %}active{% endif %}" role="menuitem">
-                    📚 Docs
-                </a>
                 
                 <div class="theme-toggle-container">
                     <button id="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">

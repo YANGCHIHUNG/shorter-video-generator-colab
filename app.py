@@ -462,11 +462,6 @@ def delete_file(filename):
         app.logger.error(f"Error deleting file: {e}", exc_info=True)
         return jsonify({"status": "error", "message": f"Error deleting file: {str(e)}"}), 500
 
-# ✅ Documentation Route
-@app.route("/documentation")
-def documentation():
-    return render_template("documentation.html")
-
 # ✅ Check Processing Status Endpoint
 @app.route("/status")
 def check_status():
